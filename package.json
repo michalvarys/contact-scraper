@@ -1,0 +1,42 @@
+{
+  "name": "gmap-scrapper",
+  "version": "1.0.0",
+  "description": "A web scraper for Google Maps using Puppeteer",
+  "main": "dist/googleMapsScraper.js",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "npm run build && node dist/googleMapsScraper.js",
+    "dev": "ts-node googleMapsScraper.ts",
+    "dev:firmy": "ts-node seznamScraper.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [
+    "google-maps",
+    "scraper",
+    "puppeteer",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.1",
+    "cheerio": "^1.0.0",
+    "puppeteer": "^21.0.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.4.0",
+    "eslint": "^8.47.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.1.6"
+  }
+}
