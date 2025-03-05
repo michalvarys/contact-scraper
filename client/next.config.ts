@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         source: '/output/:path*',
         destination: '/output/:path*',
       },
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:3000/api/:path*',
+      },
     ];
   },
   webpack: (config) => {

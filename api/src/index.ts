@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
-import { runScraper, runAllScrapers } from './services/FirmyCzScraper';
+import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
 
 dotenv.config();
 
@@ -22,7 +22,7 @@ interface CompanyQueryParams {
     hasWebsite?: 'true' | 'false';
     hasPhone?: 'true' | 'false';
     hasEmail?: 'true' | 'false';
-    sortBy?: 'name' | 'address' | 'reviewsCount' | 'scrapedAt';
+    sortBy?: 'name' | 'address' | 'reviewsCount' | 'email' | 'website' | 'scrapedAt';
     sortDir?: 'asc' | 'desc';
 }
 
@@ -46,13 +46,14 @@ app.use(express.json());
 // Pomocná funkce pro vytvoření filtru
 function createFilter(query: CompanyQueryParams): CompanyFilter {
     const filter: CompanyFilter = {};
+    const conditions: Array<Record<string, any>> = [];
 
     // Filtrování podle klíčových slov (v názvu nebo adrese)
     if (query.keyword) {
-        filter.OR = [
+        conditions.push(
             { name: { contains: query.keyword } },
             { address: { contains: query.keyword } },
-        ];
+        );
     }
 
     // Filtrování podle kategorií
@@ -84,28 +85,31 @@ function createFilter(query: CompanyQueryParams): CompanyFilter {
         };
     }
 
-    // Filtrování podle existence webu
+    // Filtrování podle existence webu, emailu a telefonu
+    if (query.hasWebsite === 'false') {
+        filter.website = { equals: null };
+    }
+    if (query.hasEmail === 'false') {
+        filter.email = { equals: null };
+    }
+    if (query.hasPhone === 'false') {
+        filter.phone = { equals: null };
+    }
+
+    // Filtrování pro existující hodnoty
     if (query.hasWebsite === 'true') {
         filter.website = { not: null };
-        filter.website = { not: '' };
-    } else if (query.hasWebsite === 'false') {
-        filter.OR = [{ website: null }, { website: '' }];
     }
-
-    // Filtrování podle existence telefonu
-    if (query.hasPhone === 'true') {
-        filter.phone = { not: null };
-        filter.phone = { not: '' };
-    } else if (query.hasPhone === 'false') {
-        filter.OR = [{ phone: null }, { phone: '' }];
-    }
-
-    // Filtrování podle existence emailu
     if (query.hasEmail === 'true') {
         filter.email = { not: null };
-        filter.email = { not: '' };
-    } else if (query.hasEmail === 'false') {
-        filter.OR = [{ email: null }, { email: '' }];
+    }
+    if (query.hasPhone === 'true') {
+        filter.phone = { not: null };
+    }
+
+    // Přidání podmínek do OR, pokud existují
+    if (conditions.length > 0) {
+        filter.OR = conditions;
     }
 
     return filter;
@@ -130,6 +134,12 @@ function createOrderBy(query: CompanyQueryParams): Array<Record<string, string>>
                 break;
             case 'scrapedAt':
                 orderBy.push({ scrapedAt: direction });
+                break;
+            case 'email':
+                orderBy.push({ email: direction });
+                break;
+            case 'website':
+                orderBy.push({ website: direction });
                 break;
             default:
                 orderBy.push({ name: 'asc' });
@@ -165,6 +175,8 @@ async function getCompanies(
             take: Number(limit),
             include: {
                 categories: true,
+                industry: true,
+                region: true,
             },
         });
 
@@ -401,7 +413,7 @@ async function startScraping(req: Request, res: Response): Promise<void> {
     try {
         const { industry, region } = req.query;
 
-        if (industry && region) {
+        if (industry || region) {
             // Spustit scraping pro konkrétní odvětví a region
             res.json({ message: `Spouštím scraping pro ${industry} v regionu ${region}` });
 
@@ -418,6 +430,36 @@ async function startScraping(req: Request, res: Response): Promise<void> {
                 console.error('Chyba při scrapingu:', error);
             });
         }
+    } catch (error) {
+        console.error('Chyba při spouštění scrapingu:', error);
+        res.status(500).json({ error: 'Interní chyba serveru' });
+    }
+}
+
+async function fixScraperLinks(req: Request, res: Response): Promise<void> {
+    try {
+        // Spustit scraping pro konkrétní odvětví a region
+        res.json({ message: `Spouštím opravování špatně scrapovaných linků` });
+
+        // Spustit scraping asynchronně, aby neblokoval odpověď
+        fixEmptyLinks().catch((error) => {
+            console.error('Chyba při opravování linků:', error);
+        });
+    } catch (error) {
+        console.error('Chyba při spouštění scrapingu:', error);
+        res.status(500).json({ error: 'Interní chyba serveru' });
+    }
+}
+
+async function cleanDatabase(req: Request, res: Response): Promise<void> {
+    try {
+        // Spustit scraping pro konkrétní odvětví a region
+        res.json({ message: `Spouštím čištění` });
+
+        // Spustit scraping asynchronně, aby neblokoval odpověď
+        clean().catch((error) => {
+            console.error('Chyba při opravování linků:', error);
+        });
     } catch (error) {
         console.error('Chyba při spouštění scrapingu:', error);
         res.status(500).json({ error: 'Interní chyba serveru' });
@@ -443,6 +485,8 @@ router.delete('/regions/:id', deleteRegion);
 
 // Scraping routes
 router.post('/scrape', startScraping);
+router.post('/fix-links', fixScraperLinks);
+router.post('/clean', cleanDatabase);
 
 // Přidání routeru s prefixem /api
 app.use('/api', router);

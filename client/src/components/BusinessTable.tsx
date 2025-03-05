@@ -1,7 +1,7 @@
 // src/components/BusinessTable.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Table as UITable,
     TableBody,
@@ -22,33 +22,88 @@ import {
 import {
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Loader2
 } from 'lucide-react';
 import { Business } from '@/types/business';
 import {
     useReactTable,
     getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
     ColumnDef,
     flexRender,
     SortingState,
-    FilterFn,
-    // Row,
-    // Table
 } from '@tanstack/react-table';
+import { useFilters } from '@/hooks/useFilters';
+import { CategorySelect } from './CategorySelect';
+import { useSearchParams } from 'next/navigation';
+import { debounce } from '@/utils/helpers';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface BusinessTableProps {
     businesses: Business[];
+    isLoading: boolean;
+    totalItems: number;
+    currentPage: number;
+    pageSize: number;
+    totalPages: number;
 }
 
-export function BusinessTable({ businesses }: BusinessTableProps) {
+export function BusinessTable({
+    businesses,
+    isLoading,
+    totalItems,
+    currentPage,
+    pageSize,
+    totalPages,
+}: BusinessTableProps) {
+    const { filters, setFilters, resetFilters, setFilter } = useFilters();
     const [sorting, setSorting] = useState<SortingState>([]);
-    const [categoryFilter, setCategoryFilter] = useState('');
-    const [websiteFilter, setWebsiteFilter] = useState<'all' | 'with' | 'without'>('all');
-    const [emailFilter, setEmailFilter] = useState<'all' | 'with' | 'without'>('all');
-    const [globalFilter, setGlobalFilter] = useState('');
+    const [searchTerm, setSearchTerm] = useState(filters.keyword || '');
+    const [limit, setLimit] = useState(filters.limit || '20')
+
+    useDebounce(() => {
+        setFilter('keyword', searchTerm);
+    }, 500, [searchTerm])
+
+    useDebounce(() => {
+        setFilters({
+            // Při změně velikosti stránky se vrátíme na první stránku
+            page: '1',
+            limit: limit.toString()
+        });
+    }, 500, [limit])
+
+
+    // Odeslání filtrů na server při změně
+    useEffect(() => {
+        console.log(sorting)
+        const newFilters: Record<string, string> = {};
+        if (sorting.length > 0) {
+            const sortColumn = sorting[0].id;
+            const sortDirection = sorting[0].desc ? 'desc' : 'asc';
+
+            // Mapování sloupců na názvy v API
+            const columnMapping: Record<string, string> = {
+                'name': 'name',
+                'address': 'address',
+                'reviewsCount': 'reviewsCount',
+                'scrapedAt': 'scrapedAt',
+                'email': 'email',
+                'website': 'website',
+            };
+
+            if (columnMapping[sortColumn]) {
+                newFilters.sortBy = columnMapping[sortColumn];
+                newFilters.sortDir = sortDirection;
+            }
+        }
+
+        // Přidání stránkování
+        newFilters.page = currentPage.toString();
+        newFilters.limit = pageSize.toString();
+
+        setFilters(newFilters);
+    }, [sorting, currentPage, pageSize, setFilters]);
 
     const columns: ColumnDef<Business>[] = [
         {
@@ -102,136 +157,122 @@ export function BusinessTable({ businesses }: BusinessTableProps) {
         {
             accessorKey: 'categories',
             header: 'Kategorie',
-            cell: ({ row }) => row.original.categories?.join(', ')
+            cell: ({ row }) => {
+                const categories = row.original.categories || [];
+                return categories.map(cat => cat.name).join(', ');
+            }
         },
         {
             accessorKey: 'address',
             header: 'Adresa'
+        },
+        {
+            accessorKey: 'industry',
+            header: 'Odvětví',
+            cell: ({ row }) => row.original.industry?.name || ''
+        },
+        {
+            accessorKey: 'region',
+            header: 'Region',
+            cell: ({ row }) => row.original.region?.name || ''
         }
     ];
 
-    const customFilter: FilterFn<Business> = (row, columnId, value): boolean => {
-        const business = row.original;
-        if (value) {
-            const searchTerm = String(value).toLowerCase();
-            const matchesSearch = business.name.toLowerCase().includes(searchTerm) ||
-                business.address.toLowerCase().includes(searchTerm);
-            if (!matchesSearch) return false;
-        }
-        const matchesCategory = !categoryFilter ||
-            (business.categories || []).includes(categoryFilter);
-
-        const matchesWebsite = websiteFilter === 'all' ||
-            (websiteFilter === 'with' ? !!business.website : !business.website);
-
-        const matchesEmail = emailFilter === 'all' ||
-            (emailFilter === 'with' ? !!business.email : !business.email);
-
-        const hasRecords = !!(business.email || business.website || business.phone || business.name);
-        return hasRecords && matchesCategory && matchesWebsite && matchesEmail;
-    };
-
+    // Použití React Table pro zobrazení dat
     const table = useReactTable({
         data: businesses,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
+        manualPagination: true, // Stránkování řídí server
+        manualSorting: true, // Řazení řídí server
+        manualFiltering: true, // Filtrování řídí server
         onSortingChange: setSorting,
-        globalFilterFn: customFilter,
         state: {
             sorting,
-            globalFilter,
-        },
-        initialState: {
             pagination: {
-                pageSize: 20,
+                pageIndex: currentPage - 1,
+                pageSize: pageSize,
             },
         },
+        pageCount: totalPages,
     });
 
-    // Extract unique categories
-    const uniqueCategories = [...new Set(businesses.flatMap(b => b.categories || []))];
-
-    const resetFilters = () => {
-        setGlobalFilter('');
-        setCategoryFilter('');
-        setWebsiteFilter('all');
-        setEmailFilter('all');
-        table.resetSorting();
+    const handleResetFilters = () => {
+        resetFilters();
+        // setSorting([]);
     };
 
-    // Apply custom filters
-    React.useEffect(() => {
-        table.setGlobalFilter(globalFilter);
-    }, [categoryFilter, websiteFilter, emailFilter, table, globalFilter]);
+    // Funkce pro změnu stránky
+    const handlePageChange = (newPage: number) => {
+        setFilters({ page: newPage.toString() });
+    };
 
     return (
         <div className="space-y-4">
+            {/* Filtry */}
             <div className="flex gap-2 items-center flex-wrap">
                 <Input
                     placeholder="Hledat podle názvu nebo adresy"
-                    value={globalFilter}
-                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="flex-grow min-w-[200px]"
                 />
 
-                <Select
-                    value={categoryFilter}
-                    onValueChange={setCategoryFilter}
-                >
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Kategorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="">Všechny kategorie</SelectItem>
-                        {uniqueCategories.map(category => (
-                            <SelectItem key={category} value={category}>
-                                {category}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <CategorySelect />
 
                 <Select
-                    value={websiteFilter}
-                    onValueChange={(value: 'all' | 'with' | 'without') => setWebsiteFilter(value)}
+                    value={filters.hasWebsite}
+                    onValueChange={(value: 'all' | 'true' | 'false') => setFilter('hasWebsite', value)}
                 >
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Web" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Jakýkoli web</SelectItem>
-                        <SelectItem value="with">S webem</SelectItem>
-                        <SelectItem value="without">Bez webu</SelectItem>
+                        <SelectItem value="true">S webem</SelectItem>
+                        <SelectItem value="false">Bez webu</SelectItem>
                     </SelectContent>
                 </Select>
 
                 <Select
-                    value={emailFilter}
-                    onValueChange={(value: 'all' | 'with' | 'without') => setEmailFilter(value)}
+                    value={filters.hasEmail}
+                    onValueChange={(value: 'all' | 'true' | 'false') => setFilter('hasEmail', value)}
                 >
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Email" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Jakýkoli email</SelectItem>
-                        <SelectItem value="with">S emailem</SelectItem>
-                        <SelectItem value="without">Bez emailu</SelectItem>
+                        <SelectItem value="true">S emailem</SelectItem>
+                        <SelectItem value="false">Bez emailu</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select
+                    value={filters.hasPhone}
+                    onValueChange={(value: 'all' | 'true' | 'false') => setFilter('hasPhone', value)}
+                >
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Phone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Jakýkoli</SelectItem>
+                        <SelectItem value="true">S telefonem</SelectItem>
+                        <SelectItem value="false">Bez telefonu</SelectItem>
                     </SelectContent>
                 </Select>
 
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={resetFilters}
+                    onClick={handleResetFilters}
                     title="Resetovat filtry"
                 >
                     <X className="h-4 w-4" />
                 </Button>
             </div>
 
+            {/* Tabulka */}
             <UITable>
                 <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -255,47 +296,65 @@ export function BusinessTable({ businesses }: BusinessTableProps) {
                     ))}
                 </TableHeader>
                 <TableBody>
-                    {table.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id}>
-                            {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </TableCell>
-                            ))}
+                    {isLoading && businesses.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={columns.length} className="text-center py-8">
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                    Načítání dat...
+                                </div>
+                            </TableCell>
                         </TableRow>
-                    ))}
+                    ) : businesses.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={columns.length} className="text-center py-8">
+                                Nebyly nalezeny žádné firmy odpovídající filtru
+                            </TableCell>
+                        </TableRow>
+                    ) : (
+                        table.getRowModel().rows.map((row) => (
+                            <TableRow key={row.id}>
+                                {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        ))
+                    )}
                 </TableBody>
             </UITable>
 
+            {/* Stránkování */}
             <div className="flex justify-between items-center">
-                <div>
-                    Celkem firem: {table.getFilteredRowModel().rows.length}
+                <div className="flex items-center gap-2">
+                    Celkem firem: {totalItems}
                     <Input
                         max={200}
                         min={10}
                         type="number"
-                        value={table.getState().pagination.pageSize}
+                        value={limit}
                         step={5}
-                        onChange={(e) => table.setPageSize(Number(e.target.value))}
+                        onChange={(e) => setLimit(e.target.value)}
                     />
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage <= 1 || isLoading}
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <span>
-                        Strana {table.getState().pagination.pageIndex + 1} z {table.getPageCount()}
+                        Strana {currentPage} z {totalPages || 1}
                     </span>
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages || isLoading}
                     >
                         <ChevronRight className="h-4 w-4" />
                     </Button>

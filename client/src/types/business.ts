@@ -6,11 +6,20 @@ export interface Business {
   email: string;
   phone: string;
   website: string;
-  industry?: string;
-  region?: string;
+  industry?: {
+    id: number;
+    name: string;
+  };
+  region?: {
+    id: number;
+    name: string;
+  };
   rating?: string;
   reviewsCount: number;
-  categories?: string[];
+  categories?: {
+    id: number;
+    name: string;
+  }[];
   link: string;
   scrapedAt: string;
 }

@@ -1,0 +1,11 @@
+--2025-03-05 19:11:13--  http://localhost:3000/api/companies?page=1
+Resolving localhost (localhost)... 127.0.0.1
+Connecting to localhost (localhost)|127.0.0.1|:3000... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 3437 (3,4K) [application/json]
+Saving to: ‘STDOUT’
+
+-                                    0%[                                                              ]       0  --.-KB/s               -                                  100%[=============================================================>]   3,36K  --.-KB/s    in 0s      
+
+2025-03-05 19:11:14 (193 MB/s) - written to stdout [3437/3437]
+

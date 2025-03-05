@@ -162,6 +162,17 @@ export class FirmyCzScraper {
         }
     }
 
+    async scrapeLink(link: string) {
+        await this.initializeBrowser();
+        await this.page!.goto(link, {
+            waitUntil: 'networkidle2',
+            timeout: 60000,
+        });
+        const business = await this.scrapeBusinessDetails(link);
+        console.dir({ link, business }, { depth: 5 });
+        await this.updateCompany(business);
+    }
+
     async scrape() {
         await this.initializeBrowser();
         await this.loadDatabase();
@@ -333,6 +344,44 @@ export class FirmyCzScraper {
             .get();
     }
 
+    private async updateCompany(business: Business) {
+        try {
+            // Připravit kategorie pro propojení
+            const categoryConnections = [];
+            if (business.categories && business.categories.length > 0) {
+                for (const categoryName of business.categories) {
+                    // Najít nebo vytvořit kategorii
+                    const category = await prisma.category.upsert({
+                        where: { name: categoryName },
+                        update: {},
+                        create: { name: categoryName },
+                    });
+                    categoryConnections.push({ id: category.id });
+                }
+            }
+
+            // Vytvořit firmu v databázi
+            await prisma.company.update({
+                where: { link: business.link },
+                data: {
+                    name: business.name,
+                    address: business.address,
+                    email: business.email,
+                    phone: business.phone,
+                    website: business.website,
+                    link: business.link,
+                    reviewsCount: business.reviewsCount,
+                    scrapedAt: new Date(business.scrapedAt),
+                    categories: {
+                        connect: categoryConnections,
+                    },
+                },
+            });
+        } catch (error) {
+            console.error(`Error updating business ${business.id}:`, error);
+        }
+    }
+
     private async saveToDatabase(business: Business) {
         try {
             // Najít nebo vytvořit industry
@@ -433,4 +482,62 @@ export async function runAllScrapers(): Promise<void> {
     } finally {
         await prisma.$disconnect();
     }
+}
+
+export async function fixEmptyLinks(): Promise<void> {
+    try {
+        const companies = await prisma.company.findMany({
+            where: {
+                AND: [
+                    {
+                        name: {
+                            equals: '',
+                        },
+                    },
+                    {
+                        email: {
+                            equals: null,
+                        },
+                    },
+                    {
+                        phone: {
+                            equals: null,
+                        },
+                    },
+                    {
+                        website: {
+                            equals: null,
+                        },
+                    },
+                ],
+            },
+            include: {
+                categories: true,
+                industry: true,
+                region: true,
+            },
+        });
+
+        console.log(companies);
+
+        const scraper = new FirmyCzScraper('', '');
+        for (const company of companies) {
+            await scraper.scrapeLink(company.link);
+        }
+        await scraper.closeBrowser();
+    } catch (error) {
+        console.error('Chyba při spouštění scraperů:', error);
+    }
+}
+
+export async function clean(): Promise<void> {
+    await prisma.$transaction([
+        prisma.company.deleteMany({
+            where: {
+                link: {
+                    startsWith: 'https://c.seznam.cz/click',
+                },
+            },
+        }),
+    ]);
 }
