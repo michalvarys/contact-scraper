@@ -1,24 +1,23 @@
 {
-  "name": "gmap-scrapper",
+  "name": "contact-scraper",
   "version": "1.0.0",
   "description": "A web scraper for Google Maps using Puppeteer",
   "workspaces": [
-    "api",
-    "client"
+    "apps/*",
+    "packages/*"
   ],
+  "prisma": {
+    "schema": "packages/db/prisma/schema.prisma",
+    "seed": "tsx packages/db/src/seed.ts"
+  },
   "scripts": {
-    "build": "npx tsc",
-    "start": "npm run build && node dist/googleMapsScraper.js",
-    "dev:mapy": "ts-node googleMapsScraper.ts",
-    "dev:firmy": "ts-node seznamScraper.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "dev:client": "cd client && npm run dev",
-    "dev:api": "cd api && npm run dev",
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:client\""
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "clean": "turbo run clean",
+    "start": "turbo run start --parallel"
   },
   "keywords": [
     "google-maps",
@@ -28,7 +27,9 @@
   ],
   "author": "",
   "license": "ISC",
+  "packageManager": "pnpm@9.14.2",
   "dependencies": {
+    "@prisma/client": "^6.4.1",
     "axios": "^1.8.1",
     "cheerio": "^1.0.0",
     "puppeteer": "^21.0.0",
@@ -44,6 +45,7 @@
     "eslint-plugin-prettier": "^5.0.0",
     "prettier": "^3.0.2",
     "ts-node": "^10.9.2",
+    "turbo": "latest",
     "typescript": "^5.1.6"
   }
 }

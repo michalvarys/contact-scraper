@@ -1,12 +1,11 @@
 import dotenv from 'dotenv';
 import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
 import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
+import { prisma } from '@contact-scraper/db';
 
 dotenv.config();
 
-const prisma = new PrismaClient();
 const app: Express = express();
 const router: Router = express.Router();
 const PORT = process.env.PORT || 3000;

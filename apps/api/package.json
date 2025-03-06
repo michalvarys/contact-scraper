@@ -1,16 +1,15 @@
 {
   "name": "api",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "seed": "ts-node src/scripts/seed.ts",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
     "lint": "eslint . --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "api:dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,8 +21,10 @@
     "express": "^4.21.2"
   },
   "devDependencies": {
+    "@contact-scraper/eslint-config": "workspace:*",
+    "@contact-scraper/typescript-config": "workspace:*",
+    "@contact-scraper/db": "workspace:*",
     "@eslint/js": "^9.21.0",
-    "@prisma/client": "^6.4.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.9",
@@ -33,7 +34,7 @@
     "eslint-config-prettier": "^10.0.2",
     "nodemon": "^3.1.9",
     "prettier": "^3.5.3",
-    "prisma": "^6.4.1",
+    "prisma": "latest",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.2"
   }

@@ -1,0 +1,8 @@
+{
+  "extends": "@contact-scraper/typescript-config/node.json",
+  "compilerOptions": { },
+  "include": [
+    "**/*.ts",
+  ],
+  "exclude": ["node_modules"]
+}
