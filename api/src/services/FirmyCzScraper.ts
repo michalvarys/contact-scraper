@@ -47,6 +47,8 @@ export class FirmyCzScraper {
 
     private browser: Browser | null = null;
     private page: Page | null = null;
+    private industryId: number | null = null;
+    private regionId: number | null = null;
 
     constructor(
         public industry: string,
@@ -54,6 +56,32 @@ export class FirmyCzScraper {
     ) {
         this.searchQuery = `${industry} ${region}`;
         this.cookiesPath = path.join(__dirname, '..', '..', 'cookies-firmy-cz.json');
+        this.init();
+    }
+
+    private async init() {
+        // Najít nebo vytvořit industry
+        let industry = await prisma.industry.findUnique({
+            where: { name: this.industry },
+        });
+
+        if (!industry) {
+            console.error(`Industry ${this.industry} nebyl nalezen v databázi.`);
+            industry = await prisma.industry.create({ data: { name: this.industry } });
+        }
+
+        // Najít nebo vytvořit region
+        let region = await prisma.region.findUnique({
+            where: { name: this.region },
+        });
+
+        if (!region) {
+            console.error(`Region ${this.region} nebyl nalezen v databázi.`);
+            region = await prisma.region.create({ data: { name: this.region } });
+        }
+
+        this.industryId = industry?.id;
+        this.regionId = region?.id;
     }
 
     private async saveCookies(): Promise<void> {
@@ -384,24 +412,8 @@ export class FirmyCzScraper {
 
     private async saveToDatabase(business: Business) {
         try {
-            // Najít nebo vytvořit industry
-            const industry = await prisma.industry.findUnique({
-                where: { name: this.industry },
-            });
-
-            if (!industry) {
-                console.error(`Industry ${this.industry} nebyl nalezen v databázi.`);
-                return;
-            }
-
-            // Najít nebo vytvořit region
-            const region = await prisma.region.findUnique({
-                where: { name: this.region },
-            });
-
-            if (!region) {
-                console.error(`Region ${this.region} nebyl nalezen v databázi.`);
-                return;
+            if (!this.industryId || !this.regionId) {
+                throw new Error('Odvětví nebo region nebyly načtené nebo nalezeny v databázi');
             }
 
             // Připravit kategorie pro propojení
@@ -431,10 +443,10 @@ export class FirmyCzScraper {
                     reviewsCount: business.reviewsCount,
                     scrapedAt: new Date(business.scrapedAt),
                     industry: {
-                        connect: { id: industry.id },
+                        connect: { id: this.industryId },
                     },
                     region: {
-                        connect: { id: region.id },
+                        connect: { id: this.regionId },
                     },
                     categories: {
                         connect: categoryConnections,

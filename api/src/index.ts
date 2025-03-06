@@ -413,7 +413,7 @@ async function startScraping(req: Request, res: Response): Promise<void> {
     try {
         const { industry, region } = req.query;
 
-        if (industry || region) {
+        if (industry && region) {
             // Spustit scraping pro konkrétní odvětví a region
             res.json({ message: `Spouštím scraping pro ${industry} v regionu ${region}` });
 
@@ -421,6 +421,32 @@ async function startScraping(req: Request, res: Response): Promise<void> {
             runScraper(industry as string, region as string).catch((error) => {
                 console.error('Chyba při scrapingu:', error);
             });
+        } else if (region) {
+            const industries = await prisma.industry.findMany();
+            for (const industry of industries) {
+                try {
+                    await runScraper(industry.name, region as string);
+                } catch (error) {
+                    console.error(
+                        `Chyba při spouštění scrapingu pro odvětví: ${industry.name} v regionu ${region}:`,
+                        error,
+                    );
+                }
+            }
+        } else if (industry) {
+            const regions = await prisma.region.findMany();
+            for (const region of regions) {
+                try {
+                    await runScraper(industry as string, region.name).catch((error) => {
+                        console.error('Chyba při scrapingu:', error);
+                    });
+                } catch (error) {
+                    console.error(
+                        `Chyba při spouštění scrapingu pro odvětví: ${industry} v regionu ${region.name}:`,
+                        error,
+                    );
+                }
+            }
         } else {
             // Spustit scraping pro všechny odvětví a regiony
             res.json({ message: 'Spouštím scraping pro všechny odvětví a regiony' });
