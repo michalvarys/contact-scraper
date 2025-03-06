@@ -1,5 +1,5 @@
 {
-  "name": "business-directory",
+  "name": "@contact-scraper/client",
   "version": "0.1.0",
   "private": true,
   "scripts": {
