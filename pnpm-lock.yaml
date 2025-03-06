@@ -347,6 +347,27 @@ importers:
         specifier: ^6.4.1
         version: 6.4.1(typescript@5.8.2)
 
+  packages/scrapers:
+    devDependencies:
+      '@contact-scraper/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@contact-scraper/db':
+        specifier: workspace:*
+        version: link:../database
+      '@contact-scraper/eslint-config':
+        specifier: workspace:*
+        version: link:../config-eslint
+      '@contact-scraper/typescript-config':
+        specifier: workspace:*
+        version: link:../config-typescript
+      ts-node-dev:
+        specifier: ^2.0.0
+        version: 2.0.0(@types/node@22.13.9)(typescript@5.8.2)
+      typescript:
+        specifier: ^5.1.6
+        version: 5.8.2
+
 packages:
 
   '@alloc/quick-lru@5.2.0':

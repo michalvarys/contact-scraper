@@ -23,6 +23,8 @@ export const companyQueryOutputSchema = z.object({
       email: z.string().nullable(),
       phone: z.string().nullable(),
       website: z.string().nullable(),
+      link: z.string(),
+      scrapedAt: z.date(),
       categories: z.array(
         z.object({
           id: z.number(),
@@ -56,7 +58,7 @@ export const updateCompanySchema = z.object({
   id: z.string(),
   name: z.string().optional(),
   address: z.string().optional(),
-  email: z.string().email().optional().nullable(),
+  email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   website: z.string().url().optional().nullable(),
   categoryIds: z.array(z.number()).optional(),

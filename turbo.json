@@ -41,6 +41,9 @@
         },
         "docs:generate": {
             "cache": false
+        },
+        "scraper:test": {
+            "cache": false
         }
     }
 }

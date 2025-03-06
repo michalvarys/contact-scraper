@@ -1,0 +1,20 @@
+{
+  "name": "@contact-scraper/scrapers",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "scraper:test": "ts-node-dev --respawn --transpile-only src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "devDependencies": {
+    "@contact-scraper/auth": "workspace:*",
+    "@contact-scraper/db": "workspace:*",
+    "@contact-scraper/eslint-config": "workspace:*",
+    "@contact-scraper/typescript-config": "workspace:*",
+    "typescript": "^5.1.6",
+    "ts-node-dev": "^2.0.0"
+  },
+  "license": "ISC"
+}

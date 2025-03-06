@@ -10,7 +10,7 @@ export default async function Home() {
 
   return (
     <Hydrate state={dehydrate(helpers.queryClient)}>
-      <main className="container mx-auto p-4">
+      <main className="container-fluid mx-auto p-4 overflow-hidden max-h-screen">
         <h1 className="text-3xl font-bold mb-6">Firemní databáze</h1>
         <Table />
       </main>

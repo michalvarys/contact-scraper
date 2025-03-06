@@ -232,6 +232,14 @@ export function BusinessTable({
             enableSorting: false,
         },
         {
+            header: '#',
+            cell: ({ row }) => (
+                <div className="max-w-[100px] truncate">
+                    {row.index + 1}
+                </div>
+            )
+        },
+        {
             accessorKey: 'name',
             header: 'Název',
             cell: ({ row }) => (
@@ -330,6 +338,15 @@ export function BusinessTable({
             cell: ({ row }) => (
                 <div className="max-w-[150px] truncate" title={row.original.region?.name || ''}>
                     {truncateText(row.original.region?.name || '', 20)}
+                </div>
+            )
+        },
+        {
+            accessorKey: 'scrapedAt',
+            header: 'Vytvořeno',
+            cell: ({ row }) => (
+                <div className="max-w-[150px] truncate" title={row.original.scrapedAt || ''}>
+                    {row.original.scrapedAt ? new Date(row.original.scrapedAt).toLocaleString('cs-CZ') : '-'}
                 </div>
             )
         },
@@ -535,7 +552,7 @@ export function BusinessTable({
                         </TableRow>
                     ) : (
                         table.getRowModel().rows.map((row) => (
-                            <TableRow key={row.id}>
+                            <TableRow onDoubleClick={() => handleEditBusiness(row.original)} key={row.id}>
                                 {row.getVisibleCells().map((cell) => (
                                     <TableCell key={cell.id}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
