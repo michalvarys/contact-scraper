@@ -31,7 +31,7 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
     const { data: industries = [], isLoading: loadingIndustries } = useIndustries();
     const { data: regions = [], isLoading: loadingRegions } = useRegions();
 
-    const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+    const { control, handleSubmit, register, formState: { errors } } = useForm<FormData>({
         defaultValues: {
             name: business.name || '',
             address: business.address || '',
@@ -95,17 +95,9 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
                 <label htmlFor="name" className="block text-sm font-medium mb-1">
                     Název
                 </label>
-                <Controller
-                    name="name"
-                    control={control}
-                    rules={{ required: 'Název je povinný' }}
-                    render={({ field }) => (
-                        <Input
-                            id="name"
-                            {...field}
-                            className={errors.name ? 'border-red-500' : ''}
-                        />
-                    )}
+                <Input id="name"
+                    className={errors.name ? 'border-red-500' : ''}
+                    {...register('name')}
                 />
                 {errors.name && (
                     <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
@@ -116,39 +108,21 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
                 <label htmlFor="address" className="block text-sm font-medium mb-1">
                     Adresa
                 </label>
-                <Controller
-                    name="address"
-                    control={control}
-                    render={({ field }) => (
-                        <Input
-                            id="address"
-                            {...field}
-                        />
-                    )}
-                />
+                <Input id="address" {...register('address')} />
             </div>
 
             <div>
                 <label htmlFor="email" className="block text-sm font-medium mb-1">
                     Email
                 </label>
-                <Controller
-                    name="email"
-                    control={control}
-                    rules={{
+                <Input id="email"
+                    className={errors.email ? 'border-red-500' : ''}
+                    {...register('email', {
                         pattern: {
                             value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                             message: 'Neplatný formát emailu'
                         }
-                    }}
-                    render={({ field }) => (
-                        <Input
-                            id="email"
-                            type="email"
-                            {...field}
-                            className={errors.email ? 'border-red-500' : ''}
-                        />
-                    )}
+                    })}
                 />
                 {errors.email && (
                     <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
@@ -159,32 +133,14 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
                 <label htmlFor="phone" className="block text-sm font-medium mb-1">
                     Telefon
                 </label>
-                <Controller
-                    name="phone"
-                    control={control}
-                    render={({ field }) => (
-                        <Input
-                            id="phone"
-                            {...field}
-                        />
-                    )}
-                />
+                <Input id="phone" {...register('phone')} />
             </div>
 
             <div>
                 <label htmlFor="website" className="block text-sm font-medium mb-1">
                     Web
                 </label>
-                <Controller
-                    name="website"
-                    control={control}
-                    render={({ field }) => (
-                        <Input
-                            id="website"
-                            {...field}
-                        />
-                    )}
-                />
+                <Input id="website" {...register('website')} />
             </div>
 
             <div>
@@ -258,8 +214,8 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
                             searchPlaceholder="Vyhledat kategorie..."
                             noOptionsMessage="Žádné kategorie nenalezeny"
                             loadingMessage="Načítání kategorií..."
-                            multiple={true}
                             allowEmpty={false}
+                            multiple
                         />
                     )}
                 />
