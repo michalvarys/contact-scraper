@@ -3,6 +3,10 @@ import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
 import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
 import { prisma } from '@contact-scraper/db';
+import swaggerUi from 'swagger-ui-express';
+import { createExpressMiddleware } from '@trpc/server/adapters/express';
+import { appRouter } from '@contact-scraper/api/routers';
+import { openApiDocument } from '@contact-scraper/api/openapi';
 
 dotenv.config();
 
@@ -862,6 +866,19 @@ router.post('/clean', cleanDatabase);
 
 // Přidání routeru s prefixem /api
 app.use('/api', router);
+
+app.use(
+    '/trpc',
+    createExpressMiddleware({
+        router: appRouter,
+        createContext: () => ({
+            prisma,
+            user: null,
+        }),
+    }),
+);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Spuštění serveru
 app.listen(PORT, () => {

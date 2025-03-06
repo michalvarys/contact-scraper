@@ -1,42 +1,19 @@
+import { createSSRHelper } from "@/trpc/server";
+import Table from "./Table";
+import Hydrate from "@/trpc/dydrate";
+import { dehydrate } from "@tanstack/react-query";
+
 // src/app/page.tsx
-'use client';
-
-import { useEffect } from 'react';
-import { BusinessTable } from '@/components/BusinessTable';
-import { useCompanies } from '@/hooks/useCompanies';
-import { useFilters } from '@/hooks/useFilters';
-
-export default function Home() {
-  const { filters } = useFilters();
-  const { data, isLoading, error } = useCompanies(filters);
-
-  if (isLoading && (!data || data.data.length === 0)) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        Načítání dat...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-4 text-red-500">
-        Nepodařilo se načíst data firem
-      </div>
-    );
-  }
+export default async function Home() {
+  const helpers = await createSSRHelper()
+  await helpers.company.getCompanies.prefetch({ limit: '20', page: '1' });
 
   return (
-    <main className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Firemní databáze</h1>
-      <BusinessTable
-        businesses={data?.data || []}
-        isLoading={isLoading}
-        totalItems={data?.pagination.total || 0}
-        currentPage={data?.pagination.page || 1}
-        pageSize={data?.pagination.limit || 20}
-        totalPages={data?.pagination.pages || 1}
-      />
-    </main>
+    <Hydrate state={dehydrate(helpers.queryClient)}>
+      <main className="container mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-6">Firemní databáze</h1>
+        <Table />
+      </main>
+    </Hydrate>
   );
 }

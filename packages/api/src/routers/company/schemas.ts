@@ -1,0 +1,39 @@
+import { z } from 'zod';
+
+export const companyQueryParamsSchema = z.object({
+  page: z.string().optional(),
+  limit: z.string().optional(),
+  keyword: z.string().optional(),
+  category: z.string().optional(),
+  industry: z.string().optional(),
+  region: z.string().optional(),
+  hasWebsite: z.enum(['true', 'false', 'all']).optional(),
+  hasPhone: z.enum(['true', 'false', 'all']).optional(),
+  hasEmail: z.enum(['true', 'false', 'all']).optional(),
+  sortBy: z.enum(['name', 'address', 'reviewsCount', 'email', 'website', 'scrapedAt']).optional(),
+  sortDir: z.enum(['asc', 'desc']).optional(),
+});
+
+// Schéma pro aktualizaci firmy
+export const updateCompanySchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  address: z.string().optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  website: z.string().url().optional().nullable(),
+  categoryIds: z.array(z.number()).optional(),
+  industryId: z.number().optional().nullable(),
+  regionId: z.number().optional().nullable(),
+});
+
+// Schéma pro hromadnou aktualizaci kategorie
+export const bulkUpdateCategorySchema = z.object({
+  businessIds: z.array(z.string()),
+  categoryId: z.number(),
+});
+
+// Schéma pro hromadné mazání
+export const bulkDeleteSchema = z.object({
+  businessIds: z.array(z.string()),
+});

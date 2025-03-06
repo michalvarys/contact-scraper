@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         destination: '/output/:path*',
       },
       {
+        source: '/api/trpc/:path*',
+        // destination: '/api/trpc/:path*',
+        destination: 'http://localhost:3000/trpc/:path*',
+      },
+      {
         source: '/api/:path*',
         destination: 'http://localhost:3000/api/:path*',
       },
