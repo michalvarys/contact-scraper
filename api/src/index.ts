@@ -423,6 +423,9 @@ async function startScraping(req: Request, res: Response): Promise<void> {
             });
         } else if (region) {
             const industries = await prisma.industry.findMany();
+            res.json({
+                message: `Spouštím scraping pro všechna odvětví v regionu ${region}`,
+            });
             for (const industry of industries) {
                 try {
                     await runScraper(industry.name, region as string);
@@ -435,6 +438,9 @@ async function startScraping(req: Request, res: Response): Promise<void> {
             }
         } else if (industry) {
             const regions = await prisma.region.findMany();
+            res.json({
+                message: `Spouštím scraping pro odvětví ${industry} ve všech regionech`,
+            });
             for (const region of regions) {
                 try {
                     await runScraper(industry as string, region.name).catch((error) => {
