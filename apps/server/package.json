@@ -8,8 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "lint": "eslint . --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "api:dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "",

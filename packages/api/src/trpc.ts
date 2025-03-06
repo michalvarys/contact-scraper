@@ -2,6 +2,8 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import type { User } from '@contact-scraper/auth';
 import { prisma } from '@contact-scraper/db';
 
+import { OpenApiMeta } from 'trpc-openapi';
+
 // Definice kontextu
 interface Context {
   prisma: typeof prisma;
@@ -10,6 +12,7 @@ interface Context {
 
 // Inicializace tRPC
 const t = initTRPC.context<Context>().create();
+const tm = initTRPC.meta<OpenApiMeta>().create();
 
 export const middleware = t.middleware;
 export const router = t.router;
@@ -17,13 +20,14 @@ export const procedure = t.procedure;
 
 // Middleware pro autentikaci
 export const isAuthenticated = middleware(async ({ ctx, next }) => {
-  // if (!ctx.user) {
-  //   throw new TRPCError({ code: 'UNAUTHORIZED' });
-  // }
+  if (!ctx.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+
   return next({
     ctx: {
       ...ctx,
-      user: { id: 'admin', email: 'admin@test.com', name: 'admin' }, // ctx.user,
+      user: ctx.user,
     },
   });
 });

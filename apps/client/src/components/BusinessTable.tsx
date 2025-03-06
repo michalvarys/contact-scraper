@@ -143,7 +143,7 @@ export function BusinessTable({
     const handleConfirmBulkDelete = () => {
         const selectedIds = getSelectedBusinessIds();
         if (selectedIds.length > 0) {
-            bulkDelete.mutate(selectedIds, {
+            bulkDelete.mutate({ businessIds: selectedIds }, {
                 onSuccess: () => {
                     setBulkDeleteConfirmOpen(false);
                     setRowSelection({});

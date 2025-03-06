@@ -4,7 +4,7 @@
     "main": "./index.ts",
     "types": "./index.ts",
     "scripts": {
-        "generate": "ts-node src/openapi.ts > openapi-spec.json"
+        "docs:generate": "ts-node --transpile-only generate-docs.ts > openapi-spec.json"
     },
     "exports": {
         ".": "./src/index.ts",
@@ -22,6 +22,7 @@
         "@contact-scraper/db": "workspace:*",
         "@contact-scraper/eslint-config": "workspace:*",
         "@contact-scraper/typescript-config": "workspace:*",
-        "typescript": "^5.1.6"
+        "typescript": "^5.1.6",
+        "ts-node-dev": "^2.0.0"
     }
 }

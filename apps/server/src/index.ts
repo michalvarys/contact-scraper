@@ -838,7 +838,7 @@ async function cleanDatabase(req: Request, res: Response): Promise<void> {
 }
 
 // API Routes
-router.get('/companies', getCompanies);
+// router.get('/companies', getCompanies);
 router.get('/companies/:id', getCompanyById);
 router.post('/companies', createCompany);
 router.put('/companies/:id', updateCompany);

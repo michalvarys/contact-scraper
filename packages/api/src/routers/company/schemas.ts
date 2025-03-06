@@ -14,6 +14,43 @@ export const companyQueryParamsSchema = z.object({
   sortDir: z.enum(['asc', 'desc']).optional(),
 });
 
+export const companyQueryOutputSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      address: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      website: z.string().nullable(),
+      categories: z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+        }),
+      ),
+      industry: z
+        .object({
+          id: z.number(),
+          name: z.string(),
+        })
+        .nullable(),
+      region: z
+        .object({
+          id: z.number(),
+          name: z.string(),
+        })
+        .nullable(),
+    }),
+  ),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    pages: z.number(),
+  }),
+});
+
 // Schéma pro aktualizaci firmy
 export const updateCompanySchema = z.object({
   id: z.string(),

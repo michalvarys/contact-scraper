@@ -38,6 +38,9 @@
         },
         "api:dev": {
             "cache": false
+        },
+        "docs:generate": {
+            "cache": false
         }
     }
 }
