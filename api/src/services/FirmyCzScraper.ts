@@ -106,7 +106,7 @@ export class FirmyCzScraper {
     async initializeBrowser() {
         if (!this.browser) {
             this.browser = await puppeteer.launch({
-                headless: false, // můžete nastavit na false pro vizuální ladění
+                headless: true, // můžete nastavit na false pro vizuální ladění
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',

@@ -208,6 +208,8 @@ async function getCompanyById(req: Request<{ id: string }>, res: Response): Prom
             where: { id },
             include: {
                 categories: true,
+                industry: true,
+                region: true,
             },
         });
 
@@ -220,6 +222,340 @@ async function getCompanyById(req: Request<{ id: string }>, res: Response): Prom
     } catch (error) {
         console.error('Chyba při získávání detailu firmy:', error);
         res.status(500).json({ error: 'Interní chyba serveru' });
+    }
+}
+
+async function createCompany(req: Request, res: Response): Promise<void> {
+    try {
+        const {
+            id,
+            name,
+            address,
+            email,
+            phone,
+            website,
+            link,
+            reviewsCount,
+            scrapedAt,
+            categories,
+            industry,
+            region,
+        } = req.body;
+
+        if (!id || !name || !address || !link) {
+            res.status(400).json({ error: 'ID, název, adresa a odkaz jsou povinné údaje' });
+            return;
+        }
+
+        // Příprava dat pro vytvoření společnosti
+        const companyData: any = {
+            id,
+            name,
+            address,
+            email: email || null,
+            phone: phone || null,
+            website: website || null,
+            link,
+            reviewsCount: reviewsCount || 0,
+            scrapedAt: scrapedAt ? new Date(scrapedAt) : new Date(),
+        };
+
+        // Přidání industryId, pokud je k dispozici
+        if (industry?.id) {
+            companyData.industryId = industry.id;
+        }
+
+        // Přidání regionId, pokud je k dispozici
+        if (region?.id) {
+            companyData.regionId = region.id;
+        }
+
+        // Vytvoření společnosti
+        const company = await prisma.company.create({
+            data: {
+                ...companyData,
+                // Připojení kategorií, pokud jsou k dispozici
+                ...(categories && categories.length > 0
+                    ? {
+                          categories: {
+                              connect: categories.map((category: { id: number }) => ({
+                                  id: category.id,
+                              })),
+                          },
+                      }
+                    : {}),
+            },
+            include: {
+                categories: true,
+                industry: true,
+                region: true,
+            },
+        });
+
+        res.status(201).json({
+            success: true,
+            data: company,
+            message: 'Společnost byla úspěšně vytvořena',
+        });
+    } catch (error) {
+        console.error('Chyba při vytváření společnosti:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při vytváření společnosti',
+        });
+    }
+}
+
+async function updateCompany(req: Request<{ id: string }>, res: Response): Promise<void> {
+    try {
+        const { id } = req.params;
+        const {
+            name,
+            address,
+            email,
+            phone,
+            website,
+            link,
+            reviewsCount,
+            scrapedAt,
+            categories,
+            industry,
+            region,
+        } = req.body;
+
+        // Kontrola existence společnosti
+        const existingCompany = await prisma.company.findUnique({
+            where: { id },
+            include: { categories: true },
+        });
+
+        if (!existingCompany) {
+            res.status(404).json({
+                success: false,
+                message: 'Společnost nebyla nalezena',
+            });
+            return;
+        }
+
+        // Příprava dat pro aktualizaci
+        const updateData: any = {
+            name,
+            address,
+            email: email || null,
+            phone: phone || null,
+            website: website || null,
+            link,
+            reviewsCount: reviewsCount || 0,
+            scrapedAt: scrapedAt ? new Date(scrapedAt) : existingCompany.scrapedAt,
+        };
+
+        // Aktualizace industryId
+        if (industry?.id) {
+            updateData.industryId = industry.id;
+        } else {
+            updateData.industryId = null;
+        }
+
+        // Aktualizace regionId
+        if (region?.id) {
+            updateData.regionId = region.id;
+        } else {
+            updateData.regionId = null;
+        }
+
+        // Aktualizace společnosti
+        await prisma.company.update({
+            where: { id },
+            data: {
+                ...updateData,
+                // Odpojení všech stávajících kategorií
+                categories: {
+                    disconnect: existingCompany.categories.map((category) => ({
+                        id: category.id,
+                    })),
+                },
+            },
+        });
+
+        // Pokud jsou k dispozici nové kategorie, připojíme je
+        if (categories && categories.length > 0) {
+            await prisma.company.update({
+                where: { id },
+                data: {
+                    categories: {
+                        connect: categories.map((category: { id: number }) => ({
+                            id: category.id,
+                        })),
+                    },
+                },
+            });
+        }
+
+        // Získání aktualizované společnosti se všemi vztahy
+        const finalCompany = await prisma.company.findUnique({
+            where: { id },
+            include: {
+                categories: true,
+                industry: true,
+                region: true,
+            },
+        });
+
+        res.json({
+            success: true,
+            data: finalCompany,
+            message: 'Společnost byla úspěšně aktualizována',
+        });
+    } catch (error) {
+        console.error('Chyba při aktualizaci společnosti:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při aktualizaci společnosti',
+        });
+    }
+}
+
+async function deleteCompany(req: Request<{ id: string }>, res: Response): Promise<void> {
+    try {
+        const { id } = req.params;
+
+        // Kontrola existence společnosti
+        const existingCompany = await prisma.company.findUnique({
+            where: { id },
+        });
+
+        if (!existingCompany) {
+            res.status(404).json({
+                success: false,
+                message: 'Společnost nebyla nalezena',
+            });
+            return;
+        }
+
+        // Smazání společnosti
+        await prisma.company.delete({
+            where: { id },
+        });
+
+        res.json({
+            success: true,
+            message: 'Společnost byla úspěšně smazána',
+        });
+    } catch (error) {
+        console.error('Chyba při mazání společnosti:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při mazání společnosti',
+        });
+    }
+}
+
+async function bulkUpdateCategory(req: Request, res: Response): Promise<void> {
+    try {
+        const { businessIds, categoryId } = req.body;
+
+        if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
+            res.status(400).json({
+                success: false,
+                message: 'Je vyžadován alespoň jeden ID společnosti',
+            });
+            return;
+        }
+
+        if (!categoryId) {
+            res.status(400).json({
+                success: false,
+                message: 'Je vyžadováno ID kategorie',
+            });
+            return;
+        }
+
+        // Kontrola existence kategorie
+        const category = await prisma.category.findUnique({
+            where: { id: categoryId },
+        });
+
+        if (!category) {
+            res.status(404).json({
+                success: false,
+                message: 'Kategorie nebyla nalezena',
+            });
+            return;
+        }
+
+        // Aktualizace kategorií pro všechny společnosti
+        let updatedCount = 0;
+        for (const businessId of businessIds) {
+            try {
+                await prisma.company.update({
+                    where: { id: businessId },
+                    data: {
+                        categories: {
+                            connect: { id: categoryId },
+                        },
+                    },
+                });
+                updatedCount++;
+            } catch (error) {
+                console.error(
+                    `Chyba při aktualizaci kategorie pro společnost ${businessId}:`,
+                    error,
+                );
+                // Pokračujeme s dalšími společnostmi i v případě chyby
+            }
+        }
+
+        res.json({
+            success: true,
+            count: updatedCount,
+            message: `Kategorie byla úspěšně aktualizována pro ${updatedCount} společností`,
+        });
+    } catch (error) {
+        console.error('Chyba při hromadné aktualizaci kategorií:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při hromadné aktualizaci kategorií',
+        });
+    }
+}
+
+async function bulkDelete(req: Request, res: Response): Promise<void> {
+    try {
+        const { businessIds } = req.body;
+
+        if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
+            res.status(400).json({
+                success: false,
+                message: 'Je vyžadován alespoň jeden ID společnosti',
+            });
+            return;
+        }
+
+        // Smazání společností
+        let deletedCount = 0;
+        for (const businessId of businessIds) {
+            try {
+                await prisma.company.delete({
+                    where: { id: businessId },
+                });
+                deletedCount++;
+            } catch (error) {
+                console.error(`Chyba při mazání společnosti ${businessId}:`, error);
+                // Pokračujeme s dalšími společnostmi i v případě chyby
+            }
+        }
+
+        res.json({
+            success: true,
+            count: deletedCount,
+            message: `Bylo úspěšně smazáno ${deletedCount} společností`,
+        });
+    } catch (error) {
+        console.error('Chyba při hromadném mazání společností:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při hromadném mazání společností',
+        });
     }
 }
 
@@ -501,6 +837,11 @@ async function cleanDatabase(req: Request, res: Response): Promise<void> {
 // API Routes
 router.get('/companies', getCompanies);
 router.get('/companies/:id', getCompanyById);
+router.post('/companies', createCompany);
+router.put('/companies/:id', updateCompany);
+router.delete('/companies/:id', deleteCompany);
+router.post('/companies/bulk-update-category', bulkUpdateCategory);
+router.post('/companies/bulk-delete', bulkDelete);
 router.get('/categories', getCategories);
 
 // Industry routes
