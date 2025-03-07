@@ -12,8 +12,11 @@
   },
   "aliases": {
     "components": "@/components",
+    "atoms": "@/components/atoms",
+    "molecules": "@/components/molecules",
+    "organisms": "@/components/organisms",
+    "pages": "@/components/pages",
     "utils": "@/lib/utils",
-    "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

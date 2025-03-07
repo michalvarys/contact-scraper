@@ -10,8 +10,8 @@
         ".": "./src/index.ts"
     },
     "devDependencies": {
-        "@contact-scraper/eslint-config": "workspace:*",
-        "@contact-scraper/typescript-config": "workspace:*",
+        "@contact-scraper/config-eslint": "workspace:*",
+        "@contact-scraper/config-typescript": "workspace:*",
         "prisma": "^6.4.1"
     },
     "dependencies": {

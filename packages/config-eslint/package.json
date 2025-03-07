@@ -1,5 +1,5 @@
 {
-    "name": "@contact-scraper/eslint-config",
+    "name": "@contact-scraper/config-eslint",
     "version": "0.0.0",
     "private": true,
     "files": [

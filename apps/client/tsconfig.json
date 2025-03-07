@@ -1,5 +1,5 @@
 {
-  "extends": "@contact-scraper/typescript-config/next.json",
+  "extends": "@contact-scraper/config-typescript/next.json",
   "compilerOptions": {
     "incremental": true,
     "plugins": [

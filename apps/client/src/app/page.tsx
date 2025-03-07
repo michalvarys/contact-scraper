@@ -1,7 +1,7 @@
 import { createSSRHelper } from "@/trpc/server";
 import Hydrate from "@/trpc/dydrate";
 import { dehydrate } from "@tanstack/react-query";
-import { BusinessTable } from "@/components/BusinessTable";
+import BusinessListPage from "@/components/pages/BusinessListPage"
 
 // src/app/page.tsx
 export default async function Home() {
@@ -11,8 +11,7 @@ export default async function Home() {
   return (
     <Hydrate state={dehydrate(helpers.queryClient)}>
       <main className="container-fluid mx-auto p-4 overflow-hidden max-h-screen">
-        <h1 className="text-3xl font-bold mb-6">Firemní databáze</h1>
-        <BusinessTable />
+        <BusinessListPage />
       </main>
     </Hydrate>
   );

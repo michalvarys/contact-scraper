@@ -15,6 +15,11 @@
                 "!.next/cache/**"
             ]
         },
+        "start": {
+            "dependsOn": [
+                "^build"
+            ]
+        },
         "lint": {},
         "dev": {
             "dependsOn": [

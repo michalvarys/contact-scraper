@@ -1,5 +1,5 @@
 {
-    "name": "@contact-scraper/typescript-config",
+    "name": "@contact-scraper/config-typescript",
     "version": "0.0.0",
     "private": true,
     "publishConfig": {

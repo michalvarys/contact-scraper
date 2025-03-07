@@ -41,7 +41,7 @@ module.exports = [
     ignores: ['node_modules/**', 'dist/**', 'prisma/**'],
   },
   {
-    extends: ["@contact-scraper/eslint-config/next.js"],
+    extends: ["@contact-scraper/config-eslint/next.js"],
     parser: "@typescript-eslint/parser",
     parserOptions: {
       project: true,

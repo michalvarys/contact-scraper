@@ -20,8 +20,8 @@
     "devDependencies": {
         "@contact-scraper/auth": "workspace:*",
         "@contact-scraper/db": "workspace:*",
-        "@contact-scraper/eslint-config": "workspace:*",
-        "@contact-scraper/typescript-config": "workspace:*",
+        "@contact-scraper/config-eslint": "workspace:*",
+        "@contact-scraper/config-typescript": "workspace:*",
         "typescript": "^5.1.6",
         "ts-node-dev": "^2.0.0"
     }

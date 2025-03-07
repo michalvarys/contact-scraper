@@ -8,8 +8,8 @@
         ".": "./src/index.ts"
     },
     "devDependencies": {
-        "@contact-scraper/eslint-config": "workspace:*",
-        "@contact-scraper/typescript-config": "workspace:*"
+        "@contact-scraper/config-eslint": "workspace:*",
+        "@contact-scraper/config-typescript": "workspace:*"
     },
     "dependencies": {
         "@types/bcrypt": "^5.0.2",

@@ -126,7 +126,7 @@ export class FirmyCzScraper extends BaseScraper {
 
   private extractWebsite($: cheerio.CheerioAPI): string | null {
     const websiteLink = $('.detailWebUrl');
-    return websiteLink.length ? websiteLink.attr('href') || null : null;
+    return websiteLink.length ? websiteLink.attr('href')?.split('?').shift() || null : null;
   }
 
   private extractCategories($: cheerio.CheerioAPI): string[] {

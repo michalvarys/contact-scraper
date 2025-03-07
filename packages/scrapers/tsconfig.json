@@ -1,5 +1,5 @@
 {
-    "extends": "@contact-scraper/typescript-config/node.json",
+    "extends": "@contact-scraper/config-typescript/node.json",
     "compilerOptions": {
       "rootDir": "src",
       "module": "Node16",

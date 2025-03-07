@@ -1,6 +1,6 @@
 /** @type {import("eslint").Linter.Config} */
 module.exports = {
-    extends: ["@contact-scraper/eslint-config/library.js"],
+    extends: ["@contact-scraper/config-eslint/library.js"],
     parser: "@typescript-eslint/parser",
     parserOptions: {
         project: true,
