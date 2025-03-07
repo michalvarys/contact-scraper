@@ -422,6 +422,7 @@ export function BusinessTable() {
 
     const handleResetFilters = () => {
         resetFilters();
+        setSearchTerm('')
     };
 
     // Funkce pro změnu stránky
@@ -479,12 +480,12 @@ export function BusinessTable() {
             )}
 
             {/* Filtry */}
-            <div className="flex gap-2 items-center flex-wrap">
+            <div className="flex gap-2 items-center flex-wrap w-full">
                 <Input
                     placeholder="Hledat podle názvu nebo adresy"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-grow min-w-[200px]"
+                    className="max-w-[300px]"
                 />
 
                 <CategorySelect />

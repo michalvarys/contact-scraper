@@ -9,6 +9,7 @@ import { useRegions } from '@/hooks/useRegions';
 import { CustomSelect } from './CustomSelect';
 import type { Company, UpdateCompanyData } from '@contact-scraper/api/routers';
 import { JsonEditor } from 'json-edit-react'
+import { cn } from '@/lib/utils';
 
 interface EditBusinessFormProps {
     company: Company;
@@ -36,9 +37,11 @@ export function EditBusinessForm({ company: business, onSave, onCancel }: EditBu
     });
 
     const onSubmit = (data: UpdateCompanyData) => {
-        let website = data?.website?.trim()
+        let website: string | null | undefined = data?.website?.trim()
         if (website && !website.startsWith('http')) {
             website = `http://${website}`
+        } else if (!website) {
+            website = null
         }
         onSave({
             ...business,
@@ -206,7 +209,10 @@ export function EditBusinessForm({ company: business, onSave, onCancel }: EditBu
                 <label htmlFor="categories" className="block text-sm font-medium mb-1">
                     Popisek
                 </label>
-                <Textarea rows={4} cols={4} className='min-h-[60px]' {...register('metadata.notes')} />
+                <Textarea rows={4} cols={4} className={cn('min-h-[60px]', errors.metadata?.notes ? 'border-red-500' : '')} {...register('metadata.notes')} />
+                {errors.metadata?.notes && (
+                    <p className="text-red-500 text-xs mt-1">{errors.metadata.notes.message}</p>
+                )}
             </div>
 
             <div>
@@ -218,7 +224,8 @@ export function EditBusinessForm({ company: business, onSave, onCancel }: EditBu
                     control={control}
                     defaultValue={'{}'}
                     rules={{
-                        required: true, validate: (value) => {
+                        // required: true, 
+                        validate: (value) => {
                             try {
                                 JSON.parse(value!);
                                 return true;
