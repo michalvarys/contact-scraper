@@ -20,6 +20,11 @@ export interface Business {
     id: number;
     name: string;
   }[];
+  metadata?: {
+    id: string;
+    notes?: string;
+    data?: string;
+  };
   link: string;
   scrapedAt: string;
 }

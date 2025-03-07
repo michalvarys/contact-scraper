@@ -1,37 +1,27 @@
 // src/components/EditBusinessForm.tsx
 import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Business } from '@/types/business';
 import { useCategories } from '@/hooks/useCategories';
 import { useIndustries } from '@/hooks/useIndustries';
 import { useRegions } from '@/hooks/useRegions';
 import { CustomSelect } from './CustomSelect';
+import type { Company, UpdateCompanyData } from '@contact-scraper/api/routers';
+import { JsonEditor } from 'json-edit-react'
 
 interface EditBusinessFormProps {
-    business: Business;
-    onSave: (updatedBusiness: Business) => void;
+    company: Company;
+    onSave: (updatedBusiness: UpdateCompanyData) => void;
     onCancel: () => void;
 }
 
-interface FormData {
-    name: string;
-    address: string;
-    email: string;
-    phone: string;
-    website: string;
-    industryId?: number;
-    regionId?: number;
-    categoryIds?: number[];
-}
-
-export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFormProps) {
+export function EditBusinessForm({ company: business, onSave, onCancel }: EditBusinessFormProps) {
     const { data: categories = [] } = useCategories();
     const { data: industries = [], isLoading: loadingIndustries } = useIndustries();
     const { data: regions = [], isLoading: loadingRegions } = useRegions();
 
-    const { control, handleSubmit, register, formState: { errors } } = useForm<FormData>({
+    const { control, handleSubmit, register, formState: { errors } } = useForm<UpdateCompanyData>({
         defaultValues: {
             name: business.name || '',
             address: business.address || '',
@@ -40,31 +30,22 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
             website: business.website || '',
             industryId: business.industry?.id,
             regionId: business.region?.id,
-            categoryIds: business.categories?.map(cat => cat.id) || []
+            categoryIds: business.categories?.map(cat => cat.id) || [],
+            metadata: business.metadata
         }
     });
 
-    const onSubmit = (data: FormData) => {
-        // Připravíme aktualizovaný objekt business
-        const updatedBusiness: Business = {
+    const onSubmit = (data: UpdateCompanyData) => {
+        let website = data?.website?.trim()
+        if (website && !website.startsWith('http')) {
+            website = `http://${website}`
+        }
+        onSave({
             ...business,
             ...data,
-            // Přidáme objekty industry a region, pokud byly vybrány
-            industry: data.industryId
-                ? industries.find(ind => ind.id === data.industryId) || business.industry
-                : undefined,
-            region: data.regionId
-                ? regions.find(reg => reg.id === data.regionId) || business.region
-                : undefined,
-            // Přidáme pole kategorií, pokud byly vybrány
-            categories: data.categoryIds && data.categoryIds.length > 0
-                ? data.categoryIds.map(id => categories.find(cat => cat.id === id))
-                    .filter(cat => cat !== undefined)
-                    .map(cat => cat as { id: number; name: string })
-                : business.categories
-        };
-
-        onSave(updatedBusiness);
+            website,
+            email: data?.email?.trim(),
+        });
     };
 
     // Převedení dat do formátu požadovaného CustomSelect komponentou
@@ -219,6 +200,43 @@ export function EditBusinessForm({ business, onSave, onCancel }: EditBusinessFor
                         />
                     )}
                 />
+            </div>
+
+            <div>
+                <label htmlFor="categories" className="block text-sm font-medium mb-1">
+                    Popisek
+                </label>
+                <Textarea rows={4} cols={4} className='min-h-[60px]' {...register('metadata.notes')} />
+            </div>
+
+            <div>
+                <label htmlFor="categories" className="block text-sm font-medium mb-1">
+                    Data
+                </label>
+                <Controller
+                    name="metadata.data"
+                    control={control}
+                    defaultValue={'{}'}
+                    rules={{
+                        required: true, validate: (value) => {
+                            try {
+                                JSON.parse(value!);
+                                return true;
+                            } catch (error) {
+                                return 'Neplatná data';
+                            }
+                        }
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                        <JsonEditor
+                            data={JSON.parse(value || '{}')}
+                            setData={(data) => onChange(JSON.stringify(data))}
+                        />
+                    )}
+                />
+                {errors.metadata?.data && (
+                    <p className="text-red-500 text-xs mt-1">{errors.metadata.data.message}</p>
+                )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

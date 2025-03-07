@@ -42,6 +42,11 @@ export const companyRouter = router({
           categories: true,
           industry: true,
           region: true,
+          metadata: {
+            include: {
+              website: true,
+            },
+          },
         },
         skip,
         take: limitNumber,
@@ -98,6 +103,24 @@ export const companyRouter = router({
       where: { id },
       data: {
         ...data,
+        metadata: {
+          connectOrCreate: {
+            where: {
+              companyId: id,
+            },
+            create: {
+              notes: data?.metadata?.notes,
+              data: data?.metadata?.data,
+            },
+          },
+          update: data?.metadata?.id
+            ? {
+                notes: data.metadata.notes ?? undefined,
+                data: data.metadata.data ?? undefined,
+                // website: data.metadata.website ?? undefined,
+              }
+            : undefined,
+        },
         // Aktualizace kategorií, pokud byly poskytnuty
         ...(categoryIds && {
           categories: {

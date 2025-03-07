@@ -20,20 +20,43 @@ model User {
 }
 
 model Company {
-  id           String     @id
+  id           String           @id
   name         String
   address      String
   email        String?
   phone        String?
   website      String?
   categories   Category[]
-  link         String     @unique
-  reviewsCount Int        @default(0)
+  link         String           @unique
+  reviewsCount Int              @default(0)
   scrapedAt    DateTime
-  industry     Industry?  @relation(fields: [industryId], references: [id])
+  industry     Industry?        @relation(fields: [industryId], references: [id])
   industryId   Int?
-  region       Region?    @relation(fields: [regionId], references: [id])
+  region       Region?          @relation(fields: [regionId], references: [id])
   regionId     Int?
+  metadata     CompanyMetadata?
+  metadataId   String?
+}
+
+model CompanyMetadata {
+  id        String          @id @default(uuid())
+  notes     String?
+  // JSON
+  data      String?
+  website   CompanyWebsite?
+  company   Company         @relation(fields: [companyId], references: [id])
+  companyId String          @unique
+}
+
+model CompanyWebsite {
+  id        String  @id @default(uuid())
+  link      String
+  thumbnail String?
+  // JSON
+  data      String?
+
+  CompanyMetadata CompanyMetadata @relation(fields: [metadataId], references: [id])
+  metadataId      String          @unique
 }
 
 model Category {

@@ -104,6 +104,9 @@ export function createOrderBy(
       case 'website':
         orderBy.push({ website: direction });
         break;
+      case 'phone':
+        orderBy.push({ phone: direction });
+        break;
       default:
         orderBy.push({ name: 'asc' });
     }

@@ -9,11 +9,18 @@ async function main() {
   const industries = await prisma.industry.findMany();
   const regions = await prisma.region.findMany();
   for (const region of regions) {
-    for (const industry of industries) {
-      await runGoogleMapsScraper(industry.name, region.name);
+    await runGoogleMapsScraper('Služby', region.name);
+  }
+
+  for (const industry of industries) {
+    // await runGoogleMapsScraper(industry.name, 'Karlovy Vary', `${industry.name} Karlovy Vary`, {
+    //   headless: false,
+    // });
+
+    for (const region of regions) {
+      // await runGoogleMapsScraper(industry.name, region.name);
     }
   }
-  // await runGoogleMapsScraper('Design', 'Karlovy Vary', 'Design Karlovy vary', { headless: false });
 }
 
 main().catch(console.error);

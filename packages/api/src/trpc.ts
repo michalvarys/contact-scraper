@@ -1,8 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { User } from '@contact-scraper/auth';
 import { prisma } from '@contact-scraper/db';
+import { inferRouterOutputs } from '@trpc/server';
+import { AppRouter } from './routers';
 
-import { OpenApiMeta } from 'trpc-openapi';
+// import { OpenApiMeta } from 'trpc-openapi';
 
 // Definice kontextu
 interface Context {
@@ -12,7 +14,7 @@ interface Context {
 
 // Inicializace tRPC
 const t = initTRPC.context<Context>().create();
-const tm = initTRPC.meta<OpenApiMeta>().create();
+// const t = initTRPC.meta<OpenApiMeta>().create();
 
 export const middleware = t.middleware;
 export const router = t.router;
@@ -37,3 +39,5 @@ export const publicProcedure = procedure;
 export const protectedProcedure = procedure.use(isAuthenticated);
 
 export type { Context };
+
+export type TrpcRouterOutput = inferRouterOutputs<AppRouter>;

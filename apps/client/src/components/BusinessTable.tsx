@@ -28,7 +28,6 @@ import {
     Trash2,
     Tag
 } from 'lucide-react';
-import { Business } from '@/types/business';
 import {
     useReactTable,
     getCoreRowModel,
@@ -44,15 +43,8 @@ import { useBusinessMutations } from '@/hooks/useBusinessMutations';
 import { ConfirmDialog } from './ConfirmDialog';
 import { EditBusinessForm } from './EditBusinessForm';
 import { BulkCategoryChange } from './BulkCategoryChange';
-
-interface BusinessTableProps {
-    businesses: Business[];
-    isLoading: boolean;
-    totalItems: number;
-    currentPage: number;
-    pageSize: number;
-    totalPages: number;
-}
+import { UpdateCompanyData, Company } from '@contact-scraper/api/routers';
+import { useCompanies } from '@/hooks/useCompanies';
 
 // Pomocná funkce pro zkrácení textu
 const truncateText = (text: string, maxLength: number = 30) => {
@@ -60,22 +52,30 @@ const truncateText = (text: string, maxLength: number = 30) => {
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 };
 
-export function BusinessTable({
-    businesses,
-    isLoading,
-    totalItems,
-    currentPage,
-    pageSize,
-    totalPages,
-}: BusinessTableProps) {
+export function BusinessTable() {
     const { filters, setFilters, resetFilters, setFilter } = useFilters();
+    const {
+        data: {
+            data: companies = [],
+            pagination: {
+                total: totalItems = 0,
+                page: currentPage = 1,
+                limit: pageSize = 20,
+                pages: totalPages = 1
+            } = {}
+        } = {},
+        isLoading,
+        error,
+        refetch
+    } = useCompanies(filters);
+
     const [sorting, setSorting] = useState<SortingState>([]);
     const [searchTerm, setSearchTerm] = useState(filters.keyword || '');
     const [limit, setLimit] = useState(filters.limit || '20');
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
     // Stavy pro modální okna a akce
-    const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+    const [editingBusiness, setEditingBusiness] = useState<Company | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [businessToDelete, setBusinessToDelete] = useState<string | null>(null);
     const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
@@ -99,19 +99,21 @@ export function BusinessTable({
 
     // Funkce pro manipulaci s vybranými řádky
     const getSelectedBusinessIds = (): string[] => {
-        return Object.keys(rowSelection).map(index => businesses[parseInt(index)].id);
+        return Object.keys(rowSelection).map(index => companies[parseInt(index)].id);
     };
 
     // Funkce pro úpravu firmy
-    const handleEditBusiness = (business: Business) => {
-        setEditingBusiness(business);
+    const handleEditBusiness = (company: Company) => {
+        console.log('Editing business:', company);
+        setEditingBusiness(company);
     };
 
     // Funkce pro uložení úprav
-    const handleSaveBusiness = (updatedBusiness: Business) => {
+    const handleSaveBusiness = (updatedBusiness: UpdateCompanyData) => {
         updateBusiness.mutate(updatedBusiness, {
             onSuccess: () => {
                 setEditingBusiness(null);
+                refetch()
             }
         });
     };
@@ -188,6 +190,7 @@ export function BusinessTable({
                 'scrapedAt': 'scrapedAt',
                 'email': 'email',
                 'website': 'website',
+                'phone': 'phone'
             };
 
             if (columnMapping[sortColumn]) {
@@ -203,7 +206,7 @@ export function BusinessTable({
         setFilters(newFilters);
     }, [sorting, currentPage, pageSize, setFilters]);
 
-    const columns: ColumnDef<Business>[] = [
+    const columns: ColumnDef<Company>[] = [
         {
             id: 'select',
             header: ({ table }) => (
@@ -232,12 +235,14 @@ export function BusinessTable({
             enableSorting: false,
         },
         {
+            accessorKey: 'id',
             header: '#',
             cell: ({ row }) => (
                 <div className="max-w-[100px] truncate">
                     {row.index + 1}
                 </div>
-            )
+            ),
+            enableSorting: false,
         },
         {
             accessorKey: 'name',
@@ -296,8 +301,8 @@ export function BusinessTable({
             accessorKey: 'phone',
             header: 'Telefon',
             cell: ({ row }) => (
-                <div className="max-w-[120px] truncate" title={row.original.phone}>
-                    {truncateText(row.original.phone, 15)}
+                <div className="max-w-[120px] truncate" title={row.original.phone || ''}>
+                    {truncateText(row.original.phone || '', 15)}
                 </div>
             )
         },
@@ -324,6 +329,15 @@ export function BusinessTable({
             )
         },
         {
+            accessorKey: 'metadata.notes',
+            header: 'Poznámky',
+            cell: ({ row }) => (
+                <div className="max-w-[200px] truncate" title={row.original.address}>
+                    {truncateText(row.original.metadata?.notes || '', 30)}
+                </div>
+            )
+        },
+        {
             accessorKey: 'industry',
             header: 'Odvětví',
             cell: ({ row }) => (
@@ -345,10 +359,11 @@ export function BusinessTable({
             accessorKey: 'scrapedAt',
             header: 'Vytvořeno',
             cell: ({ row }) => (
-                <div className="max-w-[150px] truncate" title={row.original.scrapedAt || ''}>
+                <div className="max-w-[150px] truncate">
                     {row.original.scrapedAt ? new Date(row.original.scrapedAt).toLocaleString('cs-CZ') : '-'}
                 </div>
             )
+
         },
         {
             id: 'actions',
@@ -385,7 +400,7 @@ export function BusinessTable({
 
     // Použití React Table pro zobrazení dat
     const table = useReactTable({
-        data: businesses,
+        data: companies,
         columns,
         getCoreRowModel: getCoreRowModel(),
         manualPagination: true, // Stránkování řídí server
@@ -416,6 +431,21 @@ export function BusinessTable({
 
     // Počet vybraných řádků
     const selectedCount = Object.keys(rowSelection).length;
+    if (isLoading && (!companies || companies.length === 0)) {
+        return (
+            <div className="container mx-auto p-4 text-center">
+                Načítání dat...
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="container mx-auto p-4 text-red-500">
+                Nepodařilo se načíst data firem
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -535,7 +565,7 @@ export function BusinessTable({
                     ))}
                 </TableHeader>
                 <TableBody>
-                    {isLoading && businesses.length === 0 ? (
+                    {isLoading && companies.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={columns.length} className="text-center py-8">
                                 <div className="flex justify-center items-center">
@@ -544,7 +574,7 @@ export function BusinessTable({
                                 </div>
                             </TableCell>
                         </TableRow>
-                    ) : businesses.length === 0 ? (
+                    ) : companies.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={columns.length} className="text-center py-8">
                                 Nebyly nalezeny žádné firmy odpovídající filtru
@@ -609,7 +639,7 @@ export function BusinessTable({
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full">
                         <h2 className="text-xl font-bold mb-4">Upravit firmu</h2>
                         <EditBusinessForm
-                            business={editingBusiness}
+                            company={editingBusiness}
                             onSave={handleSaveBusiness}
                             onCancel={() => setEditingBusiness(null)}
                         />

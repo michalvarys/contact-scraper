@@ -10,7 +10,9 @@ export const companyQueryParamsSchema = z.object({
   hasWebsite: z.enum(['true', 'false', 'all']).optional(),
   hasPhone: z.enum(['true', 'false', 'all']).optional(),
   hasEmail: z.enum(['true', 'false', 'all']).optional(),
-  sortBy: z.enum(['name', 'address', 'reviewsCount', 'email', 'website', 'scrapedAt']).optional(),
+  sortBy: z
+    .enum(['name', 'address', 'reviewsCount', 'email', 'website', 'phone', 'scrapedAt'])
+    .optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
 });
 
@@ -43,6 +45,14 @@ export const companyQueryOutputSchema = z.object({
           name: z.string(),
         })
         .nullable(),
+      metadata: z
+        .object({
+          id: z.string(),
+          notes: z.string().nullable().optional(),
+          data: z.string().nullable().optional(),
+        })
+        .optional()
+        .nullable(),
     }),
   ),
   pagination: z.object({
@@ -64,6 +74,14 @@ export const updateCompanySchema = z.object({
   categoryIds: z.array(z.number()).optional(),
   industryId: z.number().optional().nullable(),
   regionId: z.number().optional().nullable(),
+  metadata: z
+    .object({
+      id: z.string().optional(),
+      notes: z.string().nullable().optional(),
+      data: z.string().nullable().optional(),
+    })
+    .optional()
+    .nullable(),
 });
 
 // Schéma pro hromadnou aktualizaci kategorie
