@@ -96,9 +96,17 @@ export class GoogleMapsScraper extends BaseScraper {
           // Helper to extract phone
           const getPhone = (): string | null => {
             //a[href^="tel:"]
-            const phoneLink = document.querySelector('a[href^="tel:"]');
+            const phoneLink =
+              document
+                .querySelector('a[href^="tel:"]')
+                ?.getAttribute('href')
+                ?.replace('tel:', '')
+                .trim() ||
+              document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() ||
+              '';
+
             if (phoneLink) {
-              return phoneLink.getAttribute('href')?.replace('tel:', '').trim() || null;
+              return phoneLink;
             }
 
             // Look for phone button
@@ -119,17 +127,27 @@ export class GoogleMapsScraper extends BaseScraper {
           // Helper to extract website
           const getWebsite = (): string | null => {
             // website that doesn't have google in the url
-            const links = document.querySelectorAll('role[region] a[href]');
+            const website =
+              document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
+            if (website && !website.includes('google')) {
+              return website;
+            }
+
+            const links = document.querySelectorAll('[role=region] a[href]');
             for (let i = 0; i < links.length; i++) {
               const link = links.item(i);
-              const href = link.getAttribute('href');
-              if (href && !href.includes('google')) {
+              const href = link.getAttribute('href')?.split('?').shift();
+              if (
+                href &&
+                !href.includes('google') &&
+                !href.startsWith('/maps') &&
+                !href.startsWith('tel:')
+              ) {
                 return href;
               }
             }
 
-            const websiteButton = document.querySelector('a[href^="http"]');
-            return websiteButton ? websiteButton.getAttribute('href') || null : null;
+            return null;
           };
 
           // Helper to extract email
@@ -270,16 +288,27 @@ export class GoogleMapsScraper extends BaseScraper {
           items.forEach((item) => {
             try {
               const name = item.querySelector('h3.fontHeadlineSmall')?.textContent || '';
-              const address =
-                Array.from(item.querySelectorAll('div.fontBodyMedium')).find((el) =>
-                  el.textContent?.includes('·'),
-                )?.textContent || '';
+
               const phone =
-                Array.from(item.querySelectorAll('div.fontBodyMedium')).find((el) =>
-                  el.textContent?.match(/\+?[0-9\s-()]{9,}/),
-                )?.textContent || '';
+                document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() || '';
               const website =
-                item.querySelector('a[data-tooltip="Otevřít web"]')?.getAttribute('href') || '';
+                document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
+              const address =
+                document.querySelector('[data-item-id="address"]')?.textContent?.trim() || '';
+              const rating =
+                document.querySelector('.F7nice span[aria-hidden="true"]')?.textContent || '';
+              const reviewsCount =
+                document.querySelector('.HHrUdb span')?.textContent?.replace('Recenze: ', '') || '';
+
+              const reviews = Array.from(document.querySelectorAll('.jftiEf')).map((review) => ({
+                name: review.querySelector('.d4r55')?.textContent || '',
+                rating:
+                  review
+                    .querySelector('[aria-label$="hvězdiček"]')
+                    ?.getAttribute('aria-label')
+                    ?.split(' ')[0] || '',
+                message: review.querySelector('.MyEned span')?.textContent || '',
+              }));
 
               if (name) {
                 data.push({
@@ -288,12 +317,14 @@ export class GoogleMapsScraper extends BaseScraper {
                   address,
                   phone,
                   website,
+                  rating,
+                  reviewsCount,
+                  reviews,
                   email: null,
                   industry: industry,
                   region: region,
                   link: window.location.href,
                   scrapedAt: new Date().toISOString(),
-                  reviewsCount: 0,
                 });
               }
             } catch (error) {
@@ -387,4 +418,9 @@ export async function searchGoogleMaps(query: string): Promise<Business[]> {
 export async function scrapeGoogleMaps(query: string): Promise<Business[]> {
   const scraper = new GoogleMapsScraper();
   return await scraper.scrape(query);
+}
+
+export async function runGoogleMapsLinkScraper(link: string) {
+  const scraper = new GoogleMapsScraper();
+  return scraper.scrapeLink(link);
 }

@@ -566,8 +566,10 @@ export function BusinessTable({
 
             {/* Stránkování */}
             <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    Celkem firem: {totalItems}
+                <div className="flex flex-row flex-nowrap items-center gap-2">
+                    <span className="flex text-nowrap">
+                        Celkem firem: {totalItems}
+                    </span>
                     <Input
                         max={200}
                         min={10}
