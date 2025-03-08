@@ -1,5 +1,6 @@
-import { verify, sign } from 'jsonwebtoken';
+import jsonwebtoken from 'jsonwebtoken';
 import { z } from 'zod';
+const { verify, sign } = jsonwebtoken;
 
 // Schémata validace
 export const loginSchema = z.object({

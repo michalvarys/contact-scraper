@@ -10,10 +10,12 @@
         "isolatedModules": true,
         "module": "ESNext",
         "moduleResolution": "Bundler",
+        "allowSyntheticDefaultImports": true,
         "noUnusedLocals": false,
         "noUnusedParameters": false,
         "preserveWatchOutput": true,
         "skipLibCheck": true,
+        "target": "ESNext",
         "strict": true
     },
     "exclude": [

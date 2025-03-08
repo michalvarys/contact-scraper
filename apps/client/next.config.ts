@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   swcMinify: true,
 
   // Optimalizace pro statické stránky
-  output: 'standalone',
+  // output: 'standalone',
 
   // Optimalizace pro obrázky
   images: {
@@ -26,8 +26,8 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/api/trpc/:path*',
-        // destination: '/api/trpc/:path*',
-        destination: 'http://localhost:3000/trpc/:path*',
+        destination: '/api/trpc/:path*',
+        // destination: 'http://localhost:3000/trpc/:path*',
       },
       {
         source: '/api/:path*',

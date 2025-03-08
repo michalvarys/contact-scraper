@@ -45,3 +45,4 @@ output/**/*
 dist
 api/dist
 **/.turbo
+.data

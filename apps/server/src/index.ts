@@ -1,18 +1,23 @@
 import dotenv from 'dotenv';
+dotenv.config();
 import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
-import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
-import { prisma } from '@contact-scraper/db';
 import swaggerUi from 'swagger-ui-express';
+import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
+import {} from '@contact-scraper/scrapers';
+import { prisma } from '@contact-scraper/db';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '@contact-scraper/api/routers';
 import { openApiDocument } from '@contact-scraper/api/openapi';
 
-dotenv.config();
-
 const app: Express = express();
 const router: Router = express.Router();
 const PORT = process.env.PORT || 3000;
+
+// Health check endpoint pro Docker
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Typy pro query parametry
 interface CompanyQueryParams {
@@ -838,7 +843,7 @@ async function cleanDatabase(req: Request, res: Response): Promise<void> {
 }
 
 // API Routes
-// router.get('/companies', getCompanies);
+router.get('/companies', getCompanies);
 router.get('/companies/:id', getCompanyById);
 router.post('/companies', createCompany);
 router.put('/companies/:id', updateCompany);

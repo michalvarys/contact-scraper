@@ -1,8 +1,8 @@
 {
     "name": "@contact-scraper/api",
     "version": "0.0.0",
-    "main": "./index.ts",
-    "types": "./index.ts",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
     "scripts": {
         "docs:generate": "ts-node --transpile-only generate-docs.ts > openapi-spec.json"
     },
