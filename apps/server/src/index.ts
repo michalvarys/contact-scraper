@@ -1,14 +1,13 @@
 import dotenv from 'dotenv';
-dotenv.config();
 import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
-import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services/FirmyCzScraper';
-import {} from '@contact-scraper/scrapers';
+import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services';
 import { prisma } from '@contact-scraper/db';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '@contact-scraper/api/routers';
 import { openApiDocument } from '@contact-scraper/api/openapi';
+dotenv.config();
 
 const app: Express = express();
 const router: Router = express.Router();

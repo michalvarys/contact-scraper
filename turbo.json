@@ -23,7 +23,8 @@
         "lint": {},
         "dev": {
             "dependsOn": [
-                "^db:generate"
+                "^db:generate",
+                "^server:prebuild"
             ],
             "cache": false,
             "persistent": true
@@ -48,6 +49,9 @@
             "cache": false
         },
         "scraper:test": {
+            "cache": false
+        },
+        "server:prebuild": {
             "cache": false
         }
     }

@@ -3,10 +3,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "module": "Node16",
-    "moduleResolution": "node16"
-   },
-  "include": [
-    "./**/*.ts",
-  ],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "moduleResolution":"nodenext",
+    "allowSyntheticDefaultImports": true,
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
 }
