@@ -1,13 +1,19 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BusinessTable } from '@/components/organisms/BusinessTable';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { EditBusinessForm } from '@/components/organisms/EditBusinessForm';
 import { BulkCategoryChange } from '@/components/organisms/BulkCategoryChange';
 import { Button } from '@/components/atoms/Button';
 import { Tag, Trash2 } from 'lucide-react';
+import { useFilters } from '@/hooks/useFilters';
 import { Company, UpdateCompanyData } from '@contact-scraper/api/routers';
 import { useBusinessMutations } from '@/hooks/api';
+import { useBusinessTable, BusinessTableProvider } from '@/contexts/BusinessTableContext';
+import { createColumns } from '@/components/organisms/BusinessTable/columns';
+import Input from '@/components/atoms/Input';
+import CustomSelect from '@/components/molecules/CustomSelect';
+import BusinessTableFilters from '@/components/molecules/BusinessTableFilters';
 
 export interface BusinessListPageProps {
     /**
@@ -17,19 +23,28 @@ export interface BusinessListPageProps {
 }
 
 /**
- * Stránka se seznamem firem
+ * Vnitřní komponenta stránky, která používá kontext tabulky
  */
-export const BusinessListPage: React.FC<BusinessListPageProps> = ({ className }) => {
+const BusinessListPageContent: React.FC<BusinessListPageProps> = ({ className }) => {
+    const { filters, setFilter } = useFilters();
+
     // Stavy pro modální okna a akce
     const [editingBusiness, setEditingBusiness] = useState<Company | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [businessToDelete, setBusinessToDelete] = useState<string | null>(null);
     const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
     const [bulkCategoryChangeOpen, setBulkCategoryChangeOpen] = useState(false);
-    const [selectedBusinesses, setSelectedBusinesses] = useState<Company[]>([]);
 
     // Mutace pro operace s firmami
     const { updateBusiness, deleteBusiness, bulkUpdateCategory, bulkDelete } = useBusinessMutations();
+
+    // Získání tabulky pro práci s výběrem
+    const { table, data: companies, rowSelection } = useBusinessTable();
+
+    // Získání vybraných řádků přímo z tabulky
+    const selectedRows = useMemo(() => {
+        return table.getSelectedRowModel().flatRows.map(row => row.original);
+    }, [table, rowSelection]);
 
     // Funkce pro úpravu firmy
     const handleEditBusiness = (company: Company) => {
@@ -64,38 +79,38 @@ export const BusinessListPage: React.FC<BusinessListPageProps> = ({ className })
 
     // Funkce pro hromadné akce
     const handleBulkDeleteClick = () => {
-        if (selectedBusinesses.length > 0) {
+        if (selectedRows.length > 0) {
             setBulkDeleteConfirmOpen(true);
         }
     };
 
     const handleConfirmBulkDelete = () => {
-        const selectedIds = selectedBusinesses.map(business => business.id);
+        const selectedIds = selectedRows.map(business => business.id);
         if (selectedIds.length > 0) {
             bulkDelete.mutate({ businessIds: selectedIds }, {
                 onSuccess: () => {
                     setBulkDeleteConfirmOpen(false);
-                    setSelectedBusinesses([]);
+                    table.resetRowSelection(); // Reset výběru v tabulce
                 }
             });
         }
     };
 
     const handleBulkCategoryChangeClick = () => {
-        if (selectedBusinesses.length > 0) {
+        if (selectedRows.length > 0) {
             setBulkCategoryChangeOpen(true);
         }
     };
 
     const handleApplyBulkCategoryChange = (categoryId: number) => {
-        const selectedIds = selectedBusinesses.map(business => business.id);
+        const selectedIds = selectedRows.map(business => business.id);
         if (selectedIds.length > 0) {
             bulkUpdateCategory.mutate(
                 { businessIds: selectedIds, categoryId },
                 {
                     onSuccess: () => {
                         setBulkCategoryChangeOpen(false);
-                        setSelectedBusinesses([]);
+                        table.resetRowSelection(); // Reset výběru v tabulce
                     }
                 }
             );
@@ -106,40 +121,79 @@ export const BusinessListPage: React.FC<BusinessListPageProps> = ({ className })
         <div className={className}>
             <h1 className="text-3xl font-bold mb-6">Firemní databáze</h1>
 
-            {/* Hromadné akce */}
-            {selectedBusinesses.length > 0 && (
-                <div className="bg-gray-100 p-3 rounded-lg flex items-center justify-between mb-4">
-                    <div>
-                        Vybráno: <strong>{selectedBusinesses.length}</strong> záznamů
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleBulkCategoryChangeClick}
-                            className="flex items-center gap-1"
-                        >
-                            <Tag className="h-4 w-4" />
-                            Změnit kategorii
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleBulkDeleteClick}
-                            className="flex items-center gap-1"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Smazat vybrané
-                        </Button>
-                    </div>
-                </div>
-            )}
+            {
+                //Duplicitní filtry
+                selectedRows.length === 0 ? (
+                    <>
+                        <div className="bg-gray-50 p-4 rounded-lg mb-4 flex flex-row">
+                            <BusinessTableFilters />
+                            <div className="flex items-center gap-2 mb-2 flex-grow">
+                                <CustomSelect
+                                    placeholder='Vyberte duplicitní položky'
+                                    className='min-w-[200px]'
+                                    multiple
+                                    value={filters.duplicates?.split(',').filter(Boolean) || []}
+                                    options={[
+                                        { id: 'email', label: 'Email', value: "email" },
+                                        { id: 'phone', label: 'Telefon', value: "phone" },
+                                        { id: 'website', label: 'Webovek', value: "website" },
+                                        { id: 'name', label: 'Název', value: "name" },
+                                    ]}
+                                    onChange={(checked) => {
+                                        console.log(checked)
+                                        setFilter('duplicates', checked);
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </>
+                ) :
+                    // Hromadní akce
+                    (
+                        <div className="bg-gray-100 p-3 rounded-lg flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div>
+                                    Vybráno: <strong>{selectedRows.length}</strong> záznamů
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        table.resetRowSelection();
+                                    }}
+                                    className="flex items-center gap-1"
+                                >
+                                    Zrušit výběr
+                                </Button>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleBulkCategoryChangeClick}
+                                    className="flex items-center gap-1"
+                                >
+                                    <Tag className="h-4 w-4" />
+                                    Změnit kategorii
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={handleBulkDeleteClick}
+                                    className="flex items-center gap-1"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Smazat vybrané
+                                </Button>
+                            </div>
+                        </div>
+                    )
+            }
 
             {/* Tabulka firem */}
             <BusinessTable
                 onEdit={handleEditBusiness}
                 onDelete={handleDeleteClick}
-                onSelectionChange={setSelectedBusinesses}
             />
 
             {/* Modální okna */}
@@ -172,7 +226,7 @@ export const BusinessListPage: React.FC<BusinessListPageProps> = ({ className })
             <ConfirmDialog
                 isOpen={bulkDeleteConfirmOpen}
                 title="Smazat vybrané firmy"
-                message={`Opravdu chcete smazat ${selectedBusinesses.length} vybraných firem? Tato akce je nevratná.`}
+                message={`Opravdu chcete smazat ${selectedRows.length} vybraných firem? Tato akce je nevratná.`}
                 confirmLabel="Smazat"
                 cancelLabel="Zrušit"
                 onConfirm={handleConfirmBulkDelete}
@@ -192,6 +246,32 @@ export const BusinessListPage: React.FC<BusinessListPageProps> = ({ className })
                 </div>
             )}
         </div>
+    );
+};
+
+/**
+ * Stránka se seznamem firem
+ */
+export const BusinessListPage: React.FC<BusinessListPageProps> = (props) => {
+    // Memoizace definice sloupců, aby se nevytvářela při každém renderování
+    const columns = useMemo(() => {
+        const handleEdit = (company: Company) => {
+            // Tato funkce bude předána do BusinessListPageContent přes props
+            // a tam bude použita pro otevření modálního okna pro editaci
+        };
+
+        const handleDelete = (businessId: string) => {
+            // Tato funkce bude předána do BusinessListPageContent přes props
+            // a tam bude použita pro otevření potvrzovacího dialogu pro smazání
+        };
+
+        return createColumns(handleEdit, handleDelete);
+    }, []);
+
+    return (
+        <BusinessTableProvider columns={columns}>
+            <BusinessListPageContent {...props} />
+        </BusinessTableProvider>
     );
 };
 

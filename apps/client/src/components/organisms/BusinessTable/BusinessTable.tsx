@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Table, TableBody } from '@/components/atoms/Table';
-import { BusinessTableHeader } from '@/components/molecules/BusinessTableHeader';
-import { BusinessTableRow } from '@/components/molecules/BusinessTableRow';
+import { Table, TableBody, TableHead, TableHeader, TableRow, TableFooter } from '@/components/atoms/Table';
+import { TableCell } from '@/components/atoms/TableCell';
 import { TablePagination } from '@/components/molecules/TablePagination';
 import { BusinessTableFilters } from '@/components/molecules/BusinessTableFilters';
-import { useBusinessTable } from '@/hooks/ui';
+import { useBusinessTable } from '@/contexts/BusinessTableContext';
 import { Company } from '@contact-scraper/api/routers';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { flexRender } from '@tanstack/react-table';
+import { IndeterminateCheckbox } from '@/components/atoms/IndeterminateCheckbox';
 
 export interface BusinessTableProps {
     /**
@@ -18,10 +19,6 @@ export interface BusinessTableProps {
      * Callback pro smazání firmy
      */
     onDelete: (businessId: string) => void;
-    /**
-     * Callback pro výběr firem
-     */
-    onSelectionChange?: (businesses: Company[]) => void;
     /**
      * Vlastní CSS třídy
      */
@@ -34,42 +31,22 @@ export interface BusinessTableProps {
 export const BusinessTable: React.FC<BusinessTableProps> = ({
     onEdit,
     onDelete,
-    onSelectionChange,
     className,
 }) => {
     // Použití hooku pro práci s tabulkou
     const {
-        data: companies,
+        table,
         pagination,
-        sorting,
-        selection,
         isLoading,
         error,
+        rowSelection,
     } = useBusinessTable();
 
     // Stav pro aktivní řádek (např. při najetí myší)
     const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
 
-    // Efekt pro notifikaci o změně výběru
-    React.useEffect(() => {
-        onSelectionChange?.(selection.selectedRows);
-    }, [selection.selectedRows, onSelectionChange]);
-
-    // Definice sloupců tabulky
-    const columns = [
-        { id: 'id', label: '#', width: 60 },
-        { id: 'name', label: 'Název', sortable: true, width: 200 },
-        { id: 'email', label: 'Email', sortable: true, width: 200 },
-        { id: 'website', label: 'Web', sortable: true, width: 200 },
-        { id: 'phone', label: 'Telefon', sortable: true, width: 120 },
-        { id: 'categories', label: 'Kategorie', width: 200 },
-        { id: 'address', label: 'Adresa', sortable: true, width: 200 },
-        { id: 'metadata.notes', label: 'Poznámky', width: 200 },
-        { id: 'industry', label: 'Odvětví', width: 150 },
-        { id: 'region', label: 'Region', width: 150 },
-        { id: 'scrapedAt', label: 'Vytvořeno', sortable: true, width: 150 },
-        { id: 'actions', label: 'Akce', width: 100 },
-    ];
+    // Zjištění, zda jsou vybrány nějaké řádky
+    const hasSelectedRows = Object.keys(rowSelection).length > 0;
 
     // Zobrazení chyby
     if (error) {
@@ -81,74 +58,138 @@ export const BusinessTable: React.FC<BusinessTableProps> = ({
     }
 
     return (
-        <div className={cn('space-y-4', className)}>
-            {/* Filtry */}
-            <BusinessTableFilters />
-
-            {/* Tabulka */}
-            <div className="overflow-x-auto">
-                <Table>
-                    <BusinessTableHeader
-                        columns={columns}
-                        sorting={sorting.state}
-                        onSortingChange={sorting.onSortingChange}
-                        allRowsSelected={selection.isAllSelected}
-                        onSelectAllChange={selection.onSelectAll}
-                    />
-                    <TableBody>
-                        {isLoading && companies.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length + 1} className="text-center py-8">
+        <div className={cn('flex flex-col h-full', className)}>
+            {/* Tabulka s fixním headerem a scrollovatelným body */}
+            <div className="flex-grow flex flex-col border rounded-md overflow-hidden">
+                <style jsx global>{`
+                    .sticky-header {
+                        position: sticky;
+                        top: 0;
+                        z-index: 10;
+                        background-color: white;
+                        border-bottom: 1px solid #e5e7eb;
+                    }
+                    .sticky-footer {
+                        position: sticky;
+                        bottom: 0;
+                        z-index: 10;
+                        background-color: white;
+                        border-top: 1px solid #e5e7eb;
+                    }
+                    .scrollable-body {
+                        overflow-y: auto;
+                        max-height: calc(75vh - 200px);
+                    }
+                `}</style>
+                <Table className="w-full">
+                    <TableHeader className="sticky-header">
+                        {table.getHeaderGroups().map(headerGroup => (
+                            <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map(header => (
+                                    <TableHead
+                                        key={header.id}
+                                        className={cn(
+                                            header.column.getCanSort() && 'cursor-pointer hover:bg-gray-100'
+                                        )}
+                                        onClick={header.column.getToggleSortingHandler()}
+                                        style={{ width: header.column.columnDef.size ? `${header.column.columnDef.size}px` : undefined }}
+                                    >
+                                        {flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext()
+                                        )}
+                                        {header.column.getIsSorted() && (
+                                            <span className="ml-1">
+                                                {header.column.getIsSorted() === 'asc' ? ' ▲' : ' ▼'}
+                                            </span>
+                                        )}
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        ))}
+                    </TableHeader>
+                    <TableBody className="scrollable-body">
+                        {isLoading && table.getRowModel().rows.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={table.getAllColumns().length} className="text-center py-8">
                                     <div className="flex justify-center items-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                        <Loader2 className="h-6 w-4 animate-spin mr-2" />
                                         Načítání dat...
                                     </div>
-                                </td>
-                            </tr>
-                        ) : companies.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length + 1} className="text-center py-8">
+                                </TableCell>
+                            </TableRow>
+                        ) : table.getRowModel().rows.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={table.getAllColumns().length} className="text-center py-8">
                                     Nebyly nalezeny žádné firmy odpovídající filtru
-                                </td>
-                            </tr>
+                                </TableCell>
+                            </TableRow>
                         ) : (
-                            companies.map((business, index) => (
-                                <BusinessTableRow
-                                    key={business.id}
-                                    business={business}
-                                    onEdit={onEdit}
-                                    onDelete={onDelete}
-                                    isSelected={!!selection.state[index]}
-                                    onSelectChange={(isSelected) => {
-                                        const newSelection = { ...selection.state };
-                                        if (isSelected) {
-                                            newSelection[index] = true;
-                                        } else {
-                                            delete newSelection[index];
-                                        }
-                                        selection.onRowSelectionChange(newSelection);
-                                    }}
-                                    isActive={activeRowIndex === index}
-                                    onDoubleClick={() => onEdit(business)}
-                                    onMouseEnter={() => setActiveRowIndex(index)}
-                                    onMouseLeave={() => setActiveRowIndex(null)}
-                                />
-                            ))
+                            table.getRowModel().rows.map((row, index) => {
+                                const isActive = activeRowIndex === index;
+
+                                return (
+                                    <TableRow
+                                        key={row.id}
+                                        className={cn(
+                                            row.getIsSelected() && 'bg-blue-50',
+                                            isActive && 'bg-gray-50',
+                                            'h-12' // Fixní výška řádku
+                                        )}
+                                        onDoubleClick={() => onEdit(row.original)}
+                                        onMouseEnter={() => setActiveRowIndex(index)}
+                                        onMouseLeave={() => setActiveRowIndex(null)}
+                                    >
+                                        {row.getVisibleCells().map(cell => (
+                                            <TableCell
+                                                key={cell.id}
+                                                className="whitespace-nowrap overflow-hidden"
+                                            >
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                );
+                            })
                         )}
                     </TableBody>
+                    <TableFooter className="sticky-footer">
+                        <TableRow>
+                            <TableCell className="p-1 pl-2">
+                                <IndeterminateCheckbox
+                                    checked={table.getIsAllPageRowsSelected()}
+                                    indeterminate={table.getIsSomePageRowsSelected()}
+                                    onChange={table.getToggleAllPageRowsSelectedHandler()}
+                                />
+                            </TableCell>
+                            <TableCell colSpan={table.getAllColumns().length - 1} className="text-sm text-gray-600">
+                                Stránka ({table.getRowModel().rows.length} záznamů)
+                            </TableCell>
+                        </TableRow>
+                    </TableFooter>
                 </Table>
+
             </div>
 
-            {/* Stránkování */}
-            <TablePagination
-                currentPage={pagination.currentPage}
-                totalPages={pagination.totalPages}
-                totalItems={pagination.totalItems}
-                pageSize={pagination.pageSize}
-                onPageChange={pagination.onPageChange}
-                onPageSizeChange={pagination.onPageSizeChange}
-                isLoading={isLoading}
-            />
+            {/* Fixní spodní lišta se stránkováním */}
+            <div className="sticky bottom-0 zIndex-10 bg-white border-t border-gray-200 py-2 mt-4">
+                <TablePagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    pageSize={pagination.pageSize}
+                    onPageChange={(page) => {
+                        table.setPageIndex(page - 1);
+                    }}
+                    onPageSizeChange={(size) => {
+                        table.setPageSize(size);
+                    }}
+                    isLoading={isLoading}
+                />
+            </div>
         </div>
     );
 };

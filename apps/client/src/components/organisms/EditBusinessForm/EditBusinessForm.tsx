@@ -105,58 +105,56 @@ export const EditBusinessForm: React.FC<EditBusinessFormProps> = ({
             onSubmit={handleSubmit(onSubmit)}
             className={cn("space-y-4 p-4 border rounded-lg bg-gray-50", className)}
         >
-            <div>
-                <label htmlFor="name" className="block text-sm font-medium mb-1">
-                    Název
-                </label>
-                <Input
-                    id="name"
-                    className={errors.name ? 'border-red-500' : ''}
-                    {...register('name')}
-                />
-                {errors.name && (
-                    <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
-                )}
+
+            <div className="flex flex-row gap-4">
+                <div className="flex flex-col flex-grow w-1/2">
+                    <label htmlFor="name" className="block text-sm font-medium mb-1">
+                        Název
+                    </label>
+                    <Input
+                        id="name"
+                        className={errors.name ? 'border-red-500' : ''}
+                        {...register('name')}
+                    />
+                    {errors.name && (
+                        <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
+                    )}
+                </div>
+
+                <div className="flex flex-col flex-grow w-1/2">
+                    <label htmlFor="email" className="block text-sm font-medium mb-1">
+                        Email
+                    </label>
+                    <Input
+                        id="email"
+                        className={errors.email ? 'border-red-500' : ''}
+                        {...register('email', {
+                            pattern: {
+                                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                message: 'Neplatný formát emailu'
+                            }
+                        })}
+                    />
+                    {errors.email && (
+                        <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+                    )}
+                </div>
             </div>
 
-            <div>
-                <label htmlFor="address" className="block text-sm font-medium mb-1">
-                    Adresa
-                </label>
-                <Input id="address" {...register('address')} />
-            </div>
+            <div className="flex flex-row gap-4">
+                <div className="flex flex-col flex-grow w-1/2">
+                    <label htmlFor="phone" className="block text-sm font-medium mb-1">
+                        Telefon
+                    </label>
+                    <Input id="phone" {...register('phone')} />
+                </div>
 
-            <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">
-                    Email
-                </label>
-                <Input
-                    id="email"
-                    className={errors.email ? 'border-red-500' : ''}
-                    {...register('email', {
-                        pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Neplatný formát emailu'
-                        }
-                    })}
-                />
-                {errors.email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
-                )}
-            </div>
-
-            <div>
-                <label htmlFor="phone" className="block text-sm font-medium mb-1">
-                    Telefon
-                </label>
-                <Input id="phone" {...register('phone')} />
-            </div>
-
-            <div>
-                <label htmlFor="website" className="block text-sm font-medium mb-1">
-                    Web
-                </label>
-                <Input id="website" {...register('website')} />
+                <div className="flex flex-col flex-grow w-1/2">
+                    <label htmlFor="website" className="block text-sm font-medium mb-1">
+                        Web
+                    </label>
+                    <Input id="website" {...register('website')} />
+                </div>
             </div>
 
             <div>
@@ -183,6 +181,13 @@ export const EditBusinessForm: React.FC<EditBusinessFormProps> = ({
                         />
                     )}
                 />
+            </div>
+
+            <div>
+                <label htmlFor="address" className="block text-sm font-medium mb-1">
+                    Adresa
+                </label>
+                <Input id="address" {...register('address')} />
             </div>
 
             <div>
@@ -253,7 +258,7 @@ export const EditBusinessForm: React.FC<EditBusinessFormProps> = ({
                 )}
             </div>
 
-            <div>
+            <div className='max-h-[300px] overflow-y-auto'>
                 <label htmlFor="metadata-data" className="block text-sm font-medium mb-1">
                     Data
                 </label>

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export interface TablePaginationProps {
     /**
@@ -52,11 +53,30 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
     isLoading = false,
     className,
 }) => {
+    // Lokální stav pro hodnotu počtu položek na stránku
+    const [localPageSize, setLocalPageSize] = useState<number>(pageSize);
+
+    // Aktualizace lokálního stavu při změně props
+    useEffect(() => {
+        setLocalPageSize(pageSize);
+    }, [pageSize]);
+
+    // Debounce pro změnu počtu položek na stránku
+    useDebounce(
+        () => {
+            if (localPageSize !== pageSize && localPageSize > 0 && localPageSize <= 200) {
+                onPageSizeChange(localPageSize);
+            }
+        },
+        500,
+        [localPageSize]
+    );
+
     // Funkce pro změnu počtu položek na stránku
     const handlePageSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newPageSize = parseInt(e.target.value, 10);
         if (!isNaN(newPageSize) && newPageSize > 0 && newPageSize <= 200) {
-            onPageSizeChange(newPageSize);
+            setLocalPageSize(newPageSize);
         }
     };
 
@@ -74,7 +94,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                         min={10}
                         max={200}
                         step={5}
-                        value={pageSize}
+                        value={localPageSize}
                         onChange={handlePageSizeChange}
                         disabled={isLoading}
                     />

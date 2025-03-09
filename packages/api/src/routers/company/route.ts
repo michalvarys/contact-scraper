@@ -8,6 +8,7 @@ import {
   companyQueryParamsSchema,
   updateCompanySchema,
 } from './schemas';
+import { Prisma } from '@prisma/client';
 
 export const companyRouter = router({
   // Získání seznamu firem s filtrováním a stránkováním
@@ -34,6 +35,65 @@ export const companyRouter = router({
 
       // Vytvoření řazení na základě query parametrů
       const orderBy = createOrderBy(input);
+
+      const duplicates = (input.duplicates?.split(',') || []).filter(
+        Boolean,
+      ) as Prisma.CompanyScalarFieldEnum[];
+
+      // Filtrování duplicitních záznamů
+      if (duplicates.length) {
+        const duplicateConditions: Prisma.CompanyWhereInput[] = [];
+
+        for (const field of duplicates) {
+          const duplicates = await ctx.prisma.company.groupBy({
+            by: [field],
+            where: {
+              [field]: {
+                not: null,
+              },
+            },
+            _count: {
+              [field]: true, // Počet výskytů daného pole
+            },
+          });
+
+          const duplicateValues = duplicates
+            .filter((d) => d._count[field] > 1)
+            .map((d) => d[field]);
+
+          if (duplicateValues.length > 0) {
+            duplicateConditions.push({
+              [field]: {
+                in: duplicateValues,
+              },
+            });
+          }
+          // const records = await ctx.prisma.company.findMany({
+          //   where: {
+          //     [field]: {
+          //       in: duplicateValues,
+          //     },
+          //   },
+          //   include: {
+          //     categories: true,
+          //     industry: true,
+          //     region: true,
+          //     metadata: {
+          //       include: {
+          //         website: true,
+          //       },
+          //     },
+          //   },
+          //   skip,
+          //   take: limitNumber,
+          //   orderBy,
+          // });
+        }
+
+        if (duplicateConditions.length > 0) {
+          where.OR = duplicateConditions;
+        }
+      }
 
       // Získání firem s filtrováním a stránkováním
       const companies = await ctx.prisma.company.findMany({
@@ -185,19 +245,68 @@ export const companyRouter = router({
   bulkDelete: publicProcedure.input(bulkDeleteSchema).mutation(async ({ input, ctx }) => {
     const { businessIds } = input;
 
-    // Smazání všech vybraných firem
-    await ctx.prisma.company.deleteMany({
-      where: {
-        id: {
-          in: businessIds,
+    // Transakce pro zajištění atomicity operace
+    return await ctx.prisma.$transaction(async (prisma) => {
+      // 1. Nejprve získáme ID všech metadat pro vybrané firmy
+      const metadataIds = await prisma.companyMetadata.findMany({
+        where: {
+          companyId: {
+            in: businessIds,
+          },
         },
-      },
-    });
+        select: {
+          id: true,
+        },
+      });
 
-    return {
-      success: true,
-      count: businessIds.length,
-      message: `${businessIds.length} firem bylo úspěšně smazáno`,
-    };
+      const metadataIdsArray = metadataIds.map((m) => m.id);
+
+      // 2. Smažeme všechny záznamy CompanyWebsite spojené s těmito metadaty
+      if (metadataIdsArray.length > 0) {
+        await prisma.companyWebsite.deleteMany({
+          where: {
+            metadataId: {
+              in: metadataIdsArray,
+            },
+          },
+        });
+      }
+
+      // 3. Smažeme všechna metadata spojená s vybranými firmami
+      await prisma.companyMetadata.deleteMany({
+        where: {
+          companyId: {
+            in: businessIds,
+          },
+        },
+      });
+
+      // 4. Odpojíme všechny kategorie od firem (many-to-many relace)
+      for (const id of businessIds) {
+        await prisma.company.update({
+          where: { id },
+          data: {
+            categories: {
+              set: [], // Odpojení všech kategorií
+            },
+          },
+        });
+      }
+
+      // 5. Nakonec smažeme samotné firmy
+      await prisma.company.deleteMany({
+        where: {
+          id: {
+            in: businessIds,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        count: businessIds.length,
+        message: `${businessIds.length} firem bylo úspěšně smazáno včetně všech relací`,
+      };
+    });
   }),
 });

@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { companyQueryParamsSchema } from './schemas';
 import { z } from 'zod';
+import { prisma } from '@contact-scraper/db';
 
 // Pomocná funkce pro vytvoření filtru
 export function createFilter(
@@ -68,7 +69,7 @@ export function createFilter(
     filter.phone = { not: null };
   }
 
-  // Přidání podmínek do OR, pokud existují
+  // Přidání podmínek do OR pro klíčové slovo, pokud existují
   if (conditions.length > 0) {
     filter.OR = conditions;
   }

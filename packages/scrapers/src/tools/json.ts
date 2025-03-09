@@ -6,12 +6,12 @@
 export function repairTruncatedJsonArray(brokenJson: string): string {
   try {
     // Zkusíme nejprve analyzovat původní JSON
-    JSON.parse(brokenJson);
+    // JSON.parse(brokenJson);
     // Pokud se to podaří bez chyby, vrátíme původní řetězec
     return brokenJson;
   } catch (error) {
     // Ověříme, zda se jedná o JSON pole
-    console.log(brokenJson);
+    // console.log(brokenJson);
     if (!brokenJson.trim().startsWith('[')) {
       throw new Error('Vstupní řetězec není JSON pole');
     }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TRPCProvider } from '@/trpc/provider';
+import { Navigation } from '@/components/molecules/Navigation';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,7 +30,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <TRPCProvider>
-          {children}
+          <div className="relative flex flex-col min-h-screen">
+            <Navigation />
+            <div className="flex w-full flex-grow">
+              {children}
+            </div>
+          </div>
         </TRPCProvider>
       </body>
     </html>

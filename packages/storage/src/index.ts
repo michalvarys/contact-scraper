@@ -118,6 +118,7 @@ export class SupabaseStorage {
         options.fileName = `${basename}${extension}`;
       }
 
+      // FIXME: špatný formát
       return this.uploadFile(new Uint8Array(buffer), { ...options, contentType });
     } catch (error: any) {
       throw new Error(`Chyba při nahrávání z URL: ${error.message}`);

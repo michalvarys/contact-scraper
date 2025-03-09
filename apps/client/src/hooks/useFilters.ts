@@ -34,9 +34,9 @@ export function useFilters() {
   }, [pathname, router]);
 
   const setFilter = useCallback(
-    (name: string, value: string) => {
+    (name: string, value: string | string[]) => {
       const params = new URLSearchParams(searchParams.toString());
-      params.set(name, value);
+      params.set(name, typeof value === 'string' ? value : value.join(','));
       router.push(`${pathname}?${params.toString()}`);
     },
     [searchParams],
@@ -52,6 +52,9 @@ export function useFilters() {
   const sortDir = searchParams.get('sortDir') || 'asc';
   const limit = searchParams.get('limit') || '10';
 
+  // Duplicitní filtry
+  const duplicates = searchParams.get('duplicates') || '';
+
   return {
     searchParams,
     filters: {
@@ -64,6 +67,7 @@ export function useFilters() {
       sortBy,
       sortDir,
       limit,
+      duplicates,
     },
     setFilter,
     setFilters,

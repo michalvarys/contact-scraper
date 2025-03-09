@@ -14,6 +14,8 @@ export const companyQueryParamsSchema = z.object({
     .enum(['name', 'address', 'reviewsCount', 'email', 'website', 'phone', 'scrapedAt'])
     .optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
+  // Duplicitní filtr - seznam vlastností pro filtrování duplicit
+  duplicates: z.string().optional(), // z.enum(['email', 'phone', 'website', 'name']).optional(),
 });
 
 export const companyQueryOutputSchema = z.object({
