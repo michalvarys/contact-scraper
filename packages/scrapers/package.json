@@ -8,17 +8,24 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "scraper:test": "ts-node-dev --respawn --transpile-only src/test.ts"
+    "scraper:test": "ts-node-dev --respawn --transpile-only src/test.ts",
+    "storage:example": "ts-node-dev --respawn --transpile-only src/examples/storage-example.ts"
   },
   "keywords": [],
   "author": "",
   "devDependencies": {
     "@contact-scraper/auth": "workspace:*",
-    "@contact-scraper/db": "workspace:*",
     "@contact-scraper/config-eslint": "workspace:*",
     "@contact-scraper/config-typescript": "workspace:*",
-    "typescript": "^5.1.6",
-    "ts-node-dev": "^2.0.0"
+    "@contact-scraper/db": "workspace:*",
+    "@contact-scraper/storage": "workspace:*",
+    "@contact-scraper/types": "workspace:*",
+    "dotenv": "^16.4.7",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.1.6"
   },
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0"
+  }
 }

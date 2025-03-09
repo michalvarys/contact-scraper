@@ -94,6 +94,31 @@ export interface Region {
 }
 
 /**
+ * Typ pro obrázek firmy
+ */
+export interface BusinessImage {
+  /**
+   * URL obrázku
+   */
+  url: string;
+
+  /**
+   * Cesta k obrázku v bucketu
+   */
+  path: string;
+
+  /**
+   * Typ obrázku (např. 'logo', 'thumbnail', 'photo')
+   */
+  type: string;
+
+  /**
+   * Datum nahrání obrázku
+   */
+  uploadedAt: Date;
+}
+
+/**
  * Typ pro metadata firmy
  */
 export interface BusinessMetadata {
@@ -106,6 +131,16 @@ export interface BusinessMetadata {
    * Další data ve formátu JSON
    */
   data?: string | null;
+
+  /**
+   * Obrázky firmy
+   */
+  images?: BusinessImage[];
+
+  /**
+   * Náhledový obrázek webu
+   */
+  websiteThumbnail?: string | null;
 }
 
 /**
@@ -156,6 +191,11 @@ export type CreateBusinessInput = Omit<Business, 'id' | 'createdAt' | 'updatedAt
    * Metadata firmy
    */
   metadata?: BusinessMetadata | null;
+
+  /**
+   * Obrázky firmy
+   */
+  images?: BusinessImage[];
 };
 
 /**
@@ -186,6 +226,16 @@ export type UpdateBusinessInput = Partial<Omit<Business, 'id' | 'createdAt' | 'u
    * Metadata firmy
    */
   metadata?: BusinessMetadata | null;
+
+  /**
+   * Obrázky firmy k přidání
+   */
+  addImages?: BusinessImage[];
+
+  /**
+   * Cesty k obrázkům, které mají být odstraněny
+   */
+  removeImagePaths?: string[];
 };
 
 /**

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { BaseScraper, Business } from './BaseScraper';
+import { BaseScraper } from './BaseScraper';
+import { Business } from './types';
 
 export class FirmyCzScraper extends BaseScraper {
   private searchQuery: string;

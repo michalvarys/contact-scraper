@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "name": "NID",
+    "value": "522=3S9oPjSc_QSRfpNXYfkF8Jw9QBrHm2T39iBl7M_P4to21VDmXgSt67TdI-He9g7NoV6MuCzZNGVyUh1BojN12f26eisohiGU_FLDvVvR4ha4YbT9IFrYwabups9nvQtvXWWgNXm9U6gVN66OL53pWf0MAKUImbnRyZoZ2d2T_HWLj6H7n8UmxNYi1lv2NozH73aTCwOIVkk8ZHMQeO4ja_OqwelDJoeiOUPs4GxB18-GGoromF6xgWSrnP2eP6MV2w",
+    "domain": ".google.com",
+    "path": "/",
+    "expires": 1775638684.048268,
+    "size": 265,
+    "httpOnly": true,
+    "secure": true,
+    "session": false,
+    "sameSite": "None",
+    "sameParty": false,
+    "sourceScheme": "Secure",
+    "sourcePort": 443
+  },
+  {
+    "name": "SOCS",
+    "value": "CAISNQgEEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjUwMzA1LjA4X3AwGgJjcyACGgYIgJGuvgY",
+    "domain": ".google.com",
+    "path": "/",
+    "expires": 1775579988.198331,
+    "size": 91,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "Lax",
+    "sameParty": false,
+    "sourceScheme": "Secure",
+    "sourcePort": 443
+  }
+]

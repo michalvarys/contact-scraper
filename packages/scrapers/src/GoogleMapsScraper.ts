@@ -1,4 +1,5 @@
-import { BaseScraper, Business, ScraperOptions } from './BaseScraper';
+import { BaseScraper } from './BaseScraper';
+import { Business, ScraperOptions } from './types';
 
 export class GoogleMapsScraper extends BaseScraper {
   private mapLinks: Set<string> = new Set();

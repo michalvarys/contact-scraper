@@ -3,43 +3,7 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import fs from 'fs/promises';
 import { prisma } from '@contact-scraper/db';
-
-export interface Business {
-  id: string;
-  name: string;
-  address: string;
-  email: string | null;
-  phone: string | null;
-  website: string | null;
-  industry?: string;
-  region?: string;
-  rating?: string;
-  reviewsCount: number;
-  reviews?: Review[];
-  categories?: string[];
-  openingHours?: string[];
-  link: string;
-  contacts?: Contact[];
-  scrapedAt: string;
-}
-
-export interface Review {
-  rating: number;
-  text?: string;
-}
-
-export interface Contact {
-  name?: string;
-  role?: string;
-  phone?: string;
-  email?: string;
-}
-
-export interface ScraperOptions {
-  headless?: boolean;
-  industry?: string;
-  region?: string;
-}
+import { Business, ScraperOptions } from './types';
 
 export abstract class BaseScraper {
   protected browser: Browser | null = null;
