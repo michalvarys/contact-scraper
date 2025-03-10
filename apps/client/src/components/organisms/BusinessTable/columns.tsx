@@ -36,15 +36,21 @@ export const createColumns = (
             enableSorting: false,
             size: 40,
         },
-        {
-            id: 'index',
-            header: '#',
-            cell: ({ row }) => {
-                // Získání indexu řádku v tabulce (počítáno od 1)
-                return row.index + 1;
-            },
-            size: 60,
-        },
+        // Optimalizovaný sloupec s indexem
+        columnHelper.accessor(
+            // Použití funkce pro přístup k původnímu indexu v datech
+            (row, index) => index,
+            {
+                id: 'index',
+                header: '#',
+                cell: ({ getValue }) => {
+                    // Získání hodnoty indexu (počítáno od 1)
+                    return getValue<number>() + 1;
+                },
+                size: 60,
+                enableSorting: false, // Zakázání řazení pro index
+            }
+        ),
         columnHelper.accessor('name', {
             header: 'Název',
             cell: (info) => {

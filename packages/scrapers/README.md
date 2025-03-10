@@ -1,165 +1,105 @@
-# Scraper Package
+# Scrapery pro kontaktní údaje
 
-Tento balíček obsahuje scrapery pro získávání dat o firmách z různých zdrojů, jako jsou Google Maps a Firmy.cz.
+Tento balíček obsahuje implementace scraperů pro získávání kontaktních údajů firem z různých zdrojů.
 
-## Struktura
+## Dostupné scrapery
 
-Balíček byl refaktorován do modulární struktury:
+- **GoogleMapsScraper** - Scraper pro Google Maps
+- **FirmyCzScraper** - Scraper pro Firmy.cz
+- **AiGoogleMapsScraper** - Scraper pro Google Maps s využitím AI pro extrakci dat
 
+## Mock data a testy
+
+Balíček obsahuje mock data a testy pro všechny scrapery, které umožňují testování bez nutnosti přístupu k reálným datům.
+
+### Struktura mock dat
+
+Mock data jsou uložena v adresáři `src/__mocks__` a obsahují:
+
+- **businessMocks.ts** - Mock data pro business objekty, včetně:
+  - Ukázkové firmy z Google Maps
+  - Ukázkové firmy z Firmy.cz
+  - Ukázkové HTML obsahy stránek
+  - Ukázkové výsledky vyhledávání
+  - Ukázkové analýzy webových stránek
+
+- **serviceMocks.ts** - Mock implementace služeb používaných scrapery:
+  - MockBrowserManager - Mock pro správu prohlížeče
+  - MockGeminiService - Mock pro AI službu Gemini
+  - MockWebsiteAnalyzer - Mock pro analýzu webových stránek
+  - MockDatabaseManager - Mock pro správu databáze
+
+### Testy
+
+Testy jsou uloženy v adresáři `src/__tests__` a obsahují:
+
+- **GoogleMapsScraper.test.ts** - Testy pro GoogleMapsScraper
+- **FirmyCzScraper.test.ts** - Testy pro FirmyCzScraper
+- **AiGoogleMapsScraper.test.ts** - Testy pro AiGoogleMapsScraper
+
+### Spuštění testů
+
+Pro spuštění automatizovaných testů použijte:
+
+```bash
+npm test
 ```
-packages/scrapers/
-├── src/
-│   ├── services/           # Služby pro různé funkcionality
-│   │   ├── GeminiService.ts    # Služba pro práci s Google Gemini AI
-│   │   ├── WebsiteAnalyzer.ts  # Služba pro analýzu webových stránek
-│   │   ├── DatabaseManager.ts  # Služba pro práci s databází
-│   │   ├── BrowserManager.ts   # Služba pro práci s prohlížečem
-│   │   └── index.ts            # Export všech služeb
-│   ├── tools/              # Pomocné nástroje
-│   │   ├── bucket.ts           # Nástroje pro práci s Supabase Storage
-│   │   └── json.ts             # Nástroje pro práci s JSON
-│   ├── types.ts            # Definice typů
-│   ├── AiGoogleMapsScraper.ts  # Scraper pro Google Maps s využitím AI
-│   ├── GoogleMapsScraper.ts    # Základní scraper pro Google Maps
-│   ├── FirmyCzScraper.ts       # Scraper pro Firmy.cz
-│   ├── BaseScraper.ts          # Základní třída pro scrapery
-│   └── index.ts            # Export všech komponent
+
+Pro spuštění manuálních testů použijte:
+
+```bash
+npm run test:manual
 ```
 
-## Služby
+## Použití mock dat ve vlastních testech
 
-### GeminiService
-
-Služba pro práci s Google Gemini AI. Poskytuje metody pro extrakci dat z HTML pomocí AI.
+Mock data můžete použít ve vlastních testech následujícím způsobem:
 
 ```typescript
-import { geminiService } from '@contact-scraper/scrapers';
+import { mockBusinesses, mockGoogleMapsHtml } from './__mocks__/businessMocks';
+import { mockBrowserManager, mockGeminiService } from './__mocks__/serviceMocks';
 
-// Extrakce dat o firmách z HTML
-const companies = await geminiService.extractCompaniesFromHtml(html);
+// Použití mock dat
+const testBusiness = mockBusinesses.googleMapsCompany1;
 
-// Extrakce dat o firmě z HTML
-const company = await geminiService.extractCompanyDataFromHtml(html, link);
-
-// Analýza webové stránky
-const analysis = await geminiService.analyzeWebsite(html, url, viewportSize, dimensions);
+// Použití mock služeb
+const browserManager = mockBrowserManager;
+const geminiService = mockGeminiService;
 ```
 
-### WebsiteAnalyzer
+## Přidání vlastních mock dat
 
-Služba pro analýzu webových stránek. Poskytuje metody pro extrakci metadat, emailů a analýzu webových stránek.
+Pro přidání vlastních mock dat můžete rozšířit existující soubory nebo vytvořit nové v adresáři `src/__mocks__`.
 
-```typescript
-import { websiteAnalyzer } from '@contact-scraper/scrapers';
-
-// Analýza webové stránky
-const websiteData = await websiteAnalyzer.analyzeWebsite(page, websiteUrl, existingEmail);
-
-// Extrakce emailu z HTML
-const email = websiteAnalyzer.extractEmail(html);
-```
-
-### DatabaseManager
-
-Služba pro práci s databází. Poskytuje metody pro ukládání dat o firmách a webových stránkách.
+Příklad přidání nového mock business objektu:
 
 ```typescript
-import { databaseManager } from '@contact-scraper/scrapers';
-
-// Uložení dat o firmě
-const savedCompany = await databaseManager.saveCompanyData(companyData, industryName, regionName);
-
-// Uložení dat o webové stránce
-await databaseManager.saveWebsiteData(companyId, websiteData, websiteUrl);
-```
-
-### BrowserManager
-
-Služba pro práci s prohlížečem. Poskytuje metody pro inicializaci prohlížeče, navigaci, scrollování a extrakci dat.
-
-```typescript
-import { browserManager } from '@contact-scraper/scrapers';
-
-// Inicializace prohlížeče
-await browserManager.init();
-
-// Navigace na stránku
-await browserManager.navigateTo(url);
-
-// Získání HTML obsahu stránky
-const content = await browserManager.getPageContent();
-
-// Scrollování a extrakce odkazů
-const links = await browserManager.scrollAndExtractLinks();
-
-// Zavření prohlížeče
-await browserManager.close();
-```
-
-## Scrapery
-
-### AiGoogleMapsScraper
-
-Scraper pro Google Maps s využitím AI pro extrakci dat.
-
-```typescript
-import { AiGoogleMapsScraper } from '@contact-scraper/scrapers';
-
-// Vytvoření instance
-const scraper = new AiGoogleMapsScraper();
-
-// Inicializace
-await scraper.init();
-
-// Získání dat o firmě z odkazu
-const company = await scraper.getCompanyDataFromLink(link, industryName, regionName);
-
-// Scrapování firem podle oboru a regionu
-const result = await scraper.scrapeCompanies(industry, region);
-
-// Zavření scraperu
-await scraper.close();
-```
-
-### GoogleMapsScraper
-
-Základní scraper pro Google Maps.
-
-```typescript
-import { GoogleMapsScraper, runGoogleMapsScraper } from '@contact-scraper/scrapers';
-
-// Vytvoření instance
-const scraper = new GoogleMapsScraper(industry, region, headless);
-
-// Scrapování
-const companies = await scraper.scrape(query);
-
-// Nebo použití pomocné funkce
-const companies = await runGoogleMapsScraper(industry, region, query, options);
-```
-
-## Příklad použití
-
-```typescript
-import { AiGoogleMapsScraper } from '@contact-scraper/scrapers';
-
-async function main() {
-  const scraper = new AiGoogleMapsScraper();
+// Přidání do src/__mocks__/businessMocks.ts
+export const mockBusinesses: Record<string, Business> = {
+  // Existující mock data
+  googleMapsCompany1: { ... },
   
-  // Scrapování firem podle oboru a regionu
-  const result = await scraper.scrapeCompanies('Stavební firma', 'Karlovy Vary');
-  console.log(`Úspěšně zpracováno ${result.length} firem.`);
-  
-  // Nebo získání dat o firmě z odkazu
-  const company = await scraper.getCompanyDataFromLink(
-    'https://www.google.com/maps/place/...',
-    'Stavební firma',
-    'Karlovy Vary'
-  );
-  console.log(`Získána data o firmě: ${company.name}`);
-  
-  // Nezapomeňte zavřít scraper
-  await scraper.close();
-}
+  // Nový mock objekt
+  myCustomBusiness: {
+    id: 'custom1',
+    name: 'Moje Firma',
+    address: 'Moje Adresa 123',
+    email: 'info@mojefirma.cz',
+    phone: '+420 123 456 789',
+    website: 'https://www.mojefirma.cz',
+    industry: 'IT',
+    region: 'Praha',
+    reviewsCount: 10,
+    categories: ['IT služby'],
+    link: 'https://www.google.com/maps/place/Moje+Firma',
+    scrapedAt: new Date().toISOString(),
+  }
+};
+```
 
-main().catch(console.error);
+## Tipy pro testování
+
+1. **Izolace testů** - Každý test by měl být nezávislý na ostatních testech.
+2. **Resetování mocků** - Používejte `jest.clearAllMocks()` v `beforeEach` pro resetování mocků před každým testem.
+3. **Testování protected metod** - Pro testování protected metod můžete použít `@ts-ignore` nebo vytvořit testovací podtřídu.
+4. **Simulace chyb** - Testujte i chybové stavy pomocí `mockRejectedValue` nebo `mockImplementation` s throw.

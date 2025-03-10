@@ -1,0 +1,47 @@
+[
+  {
+    "name": "cw_return_url",
+    "value": "https://www.firmy.cz/detail/12345-autoservis-rychly-plzen.html?cwreturn=1",
+    "domain": ".seznam.cz",
+    "path": "/",
+    "expires": 1773095932,
+    "size": 86,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "None",
+    "sameParty": false,
+    "sourceScheme": "Secure",
+    "sourcePort": 443
+  },
+  {
+    "name": "cmphitorder",
+    "value": "9",
+    "domain": ".seznam.cz",
+    "path": "/",
+    "expires": 1773095933,
+    "size": 12,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "None",
+    "sameParty": false,
+    "sourceScheme": "Secure",
+    "sourcePort": 443
+  },
+  {
+    "name": "cmpsessid",
+    "value": "2uqag9sjpn",
+    "domain": ".seznam.cz",
+    "path": "/",
+    "expires": 1773095932,
+    "size": 19,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "None",
+    "sameParty": false,
+    "sourceScheme": "Secure",
+    "sourcePort": 443
+  }
+]

@@ -7,9 +7,6 @@ const withAnalyzer = withBundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
-  // Optimalizace pro produkční build
-  swcMinify: true,
-
   // Optimalizace pro statické stránky
   // output: 'standalone',
 

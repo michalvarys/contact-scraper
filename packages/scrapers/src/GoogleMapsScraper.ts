@@ -37,7 +37,7 @@ export class GoogleMapsScraper extends BaseScraper {
     throw new Error('Google Maps does not support traditional pagination');
   }
 
-  protected extractCompanyLinks(html: string): string[] {
+  extractCompanyLinks(html: string): string[] {
     // This is handled differently for Google Maps since we need browser interaction
     // This will be empty as we use collectMapLinks() instead
     return [];
@@ -57,7 +57,7 @@ export class GoogleMapsScraper extends BaseScraper {
     });
   }
 
-  protected async scrapeBusinessDetails(link: string): Promise<Business> {
+  async scrapeBusinessDetails(link: string): Promise<Business> {
     if (!this.page) throw new Error('Page not initialized');
 
     try {

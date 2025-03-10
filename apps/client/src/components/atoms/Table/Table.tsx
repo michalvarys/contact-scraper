@@ -34,19 +34,20 @@ export interface TableProps extends React.ComponentProps<"table"> {
  * ```
  */
 export const Table = React.forwardRef<HTMLTableElement, TableProps>(
-    ({ className, ...props }, ref) => {
+    ({ className, onScroll, ...props }, ref) => {
         return (
-            <div
-                data-slot="table-container"
-                className="relative w-full max-h-[75vh] overflow-y-auto overflow-x-auto"
-            >
-                <table
-                    ref={ref}
-                    data-slot="table"
-                    className={cn("w-full caption-bottom text-sm", className)}
-                    {...props}
-                />
-            </div>
+            // <div
+            //     data-slot="table-container"
+            //     className="relative w-full max-h-[75vh] overflow-y-auto overflow-x-auto"
+            //     onScroll={onScroll}
+            // >
+            <table
+                ref={ref}
+                data-slot="table"
+                className={cn("w-full caption-bottom text-sm", className)}
+                {...props}
+            />
+            // </div>
         );
     }
 );

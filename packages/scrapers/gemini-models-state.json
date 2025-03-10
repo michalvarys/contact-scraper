@@ -1,0 +1,32 @@
+[
+  {
+    "name": "gemini-2.0-flash-lite",
+    "exhausted": false,
+    "exhaustedAt": null
+  },
+  {
+    "name": "gemini-flash",
+    "exhausted": false,
+    "exhaustedAt": null
+  },
+  {
+    "name": "gemini-2.0-flash",
+    "exhausted": false,
+    "exhaustedAt": null
+  },
+  {
+    "name": "gemini-2.0-flash-exp",
+    "exhausted": false,
+    "exhaustedAt": null
+  },
+  {
+    "name": "gemini-1.5-flash",
+    "exhausted": false,
+    "exhaustedAt": null
+  },
+  {
+    "name": "gemini-1.5-pro",
+    "exhausted": false,
+    "exhaustedAt": null
+  }
+]
