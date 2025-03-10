@@ -11,7 +11,7 @@ dotenv.config();
 
 const app: Express = express();
 const router: Router = express.Router();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 // Health check endpoint pro Docker
 app.get('/health', (_req, res) => {
