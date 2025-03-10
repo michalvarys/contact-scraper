@@ -21,7 +21,7 @@ async function main() {
   const regions = await prisma.region.findMany();
   const pLimit = (await import('p-limit')).default; // Dynamický import
 
-  const limit = pLimit(6);
+  const limit = pLimit(3);
 
   const tasks = [];
   const sektory = [
@@ -29,7 +29,7 @@ async function main() {
     // 'Design',
     // 'Kadeřnictví',
     // 'Barber',
-    'Software',
+    // 'Software',
     'Programátor',
     'Tvorba webu',
     'Digitální marketing',

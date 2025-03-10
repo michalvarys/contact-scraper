@@ -185,6 +185,7 @@ export class MockDatabaseManager {
       industry: industryName ? { name: industryName } : null,
       region: regionName ? { name: regionName } : null,
       categories: (companyData.categories || []).map((name: string) => ({ name })),
+      address: companyData.address || undefined,
       metadata: companyData.websiteData
         ? {
             data: JSON.stringify(companyData.websiteData.metadata || {}),

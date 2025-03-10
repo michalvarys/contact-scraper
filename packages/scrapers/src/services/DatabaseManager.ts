@@ -51,6 +51,8 @@ export class DatabaseManager {
         where: { link: companyData.link },
         update: {
           ...companyData,
+          address: companyData.address || undefined,
+          reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
           categories: {
             connectOrCreate: categories.map((categoryName: string) => ({
               where: { name: categoryName },
@@ -60,7 +62,8 @@ export class DatabaseManager {
         },
         create: {
           ...companyData,
-          address: companyData.address || null,
+          address: companyData.address || '',
+          reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
           id: companyData.id || null,
           link: companyData.link,
           name: companyData.name,
