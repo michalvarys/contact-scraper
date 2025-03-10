@@ -1,48 +1,39 @@
+# Závislosti
+node_modules
+.pnpm-store
+
+# Buildy
+dist
+build
+.next
+out
+
+# Testy
+**/__tests__
+**/*.test.*
+**/e2e
+**/playwright
+
 # Vývojové soubory
 .git
 .github
 .vscode
 .idea
-.DS_Store
 *.log
-*.md
-!README.md
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Node.js
-node_modules
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-.pnpm-debug.log
-
-# Build výstupy
-dist
-build
-.next
-out
-coverage
-.turbo
+# Databáze
+**/*.db
+**/*.db-journal
 
 # Prostředí
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
-# Testy
-**/__tests__
-**/*.test.*
-**/*.spec.*
-**/e2e
-
-# Docker
-Dockerfile
-.dockerignore
-docker-compose.yml
-
-# Další
-.eslintcache
-.eslintrc
-.prettierrc
-.prettierignore
+# Ostatní
+.DS_Store
+Thumbs.db

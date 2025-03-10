@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # PostgreSQL databáze
+  postgres:
+    image: postgres:16
+    container_name: gmap-scrapper-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API server
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/api.Dockerfile
+    container_name: gmap-scrapper-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/server:/app/apps/server
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/server/node_modules
+
+  # Klientská aplikace
+  client:
+    build:
+      context: .
+      dockerfile: ./docker/client.Dockerfile
+    container_name: gmap-scrapper-client
+    depends_on:
+      - api
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:3000
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./apps/client:/app/apps/client
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/client/node_modules
+
+volumes:
+  postgres-data:
