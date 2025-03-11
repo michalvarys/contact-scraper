@@ -32,6 +32,9 @@ RUN pnpm install
 COPY apps/client ./apps/client
 COPY packages ./packages
 
+# Generování Prisma klienta
+RUN cd packages/database && pnpm db:generate
+
 # Build aplikace
 # Nejprve nainstalujeme globální závislosti, které mohou být potřeba pro build
 RUN npm install -g tsup
