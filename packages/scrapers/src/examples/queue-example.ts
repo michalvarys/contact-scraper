@@ -1,90 +1,108 @@
-import {
-  createScraperTask,
-  runScraperTask,
-  processLink,
-  getScraperTask,
-  getTaskLinks,
-  ScraperTaskStatus,
-  ScrapedLinkStatus,
-} from '../tools/scraperQueue';
+import { ScraperQueue } from '../tools/queue';
+import { ScraperTaskStatus, ScrapedLink, ScraperLog, Business } from '../types';
+import { prisma } from '../tools/mockDb';
 
-/**
- * Ukázkový skript pro demonstraci použití fronty pro scraper
- */
-async function runQueueExample() {
+export async function main() {
+  // Získání instance fronty
+  const queue = ScraperQueue.getInstance();
+
   try {
-    console.log('Vytvářím novou úlohu pro Google Maps Scraper...');
-
-    // 1. Vytvoříme novou úlohu pro GoogleMapsScraper
-    const task = await createScraperTask({
-      scraperType: 'GoogleMapsScraper',
-      scraperConfig: {
-        industry: 'restaurace',
-        region: 'Praha',
-        headless: false, // nastavíme na true pro produkční použití
+    // Vytvoření nové úlohy pro Google Maps scraper
+    const task = await prisma.scraperTask.create({
+      data: {
+        scraperType: 'GoogleMapsScraper',
+        scraperConfig: {
+          headless: true,
+        },
+        industry: 'restaurants',
+        region: 'Prague',
+        status: ScraperTaskStatus.PENDING,
       },
-      searchQuery: 'nejlepší restaurace Praha',
     });
 
-    console.log(`Úloha byla vytvořena s ID: ${task.id}`);
+    console.log('Created new task:', task);
 
-    // 2. Spustíme úlohu
-    console.log('Spouštím úlohu...');
-    await runScraperTask(task.id);
+    // Spuštění úlohy
+    await queue.processNextTask();
 
-    // 3. Načteme úlohu a zkontrolujeme její stav
-    const updatedTask = await getScraperTask(task.id);
-    console.log(`Úloha je ve stavu: ${updatedTask?.status}`);
+    // Kontrola stavu úlohy
+    const updatedTask = await prisma.scraperTask.findUnique({
+      where: { id: task.id },
+    });
 
-    // 4. Získáme odkazy nalezené v rámci úlohy
-    const allLinks = await getTaskLinks(task.id);
-    console.log(`Úloha nalezla celkem ${allLinks.length} odkazů`);
+    console.log('Task status:', updatedTask?.status);
 
-    // 5. Vypíšeme statistiky podle stavu odkazů
-    const processedLinks = await getTaskLinks(task.id, ScrapedLinkStatus.PROCESSED);
-    const failedLinks = await getTaskLinks(task.id, ScrapedLinkStatus.FAILED);
-    const pendingLinks = await getTaskLinks(task.id, ScrapedLinkStatus.PENDING);
+    // Získání nalezených odkazů
+    const links = await prisma.scrapedLink.findMany({
+      where: { taskId: task.id },
+    });
 
-    console.log(`Zpracované odkazy: ${processedLinks.length}`);
-    console.log(`Selhavší odkazy: ${failedLinks.length}`);
-    console.log(`Čekající odkazy: ${pendingLinks.length}`);
+    console.log('Found links:', links.length);
+    console.log('Links by status:');
+    console.log('- Pending:', links.filter((l) => l.status === ScraperTaskStatus.PENDING).length);
+    console.log('- Running:', links.filter((l) => l.status === ScraperTaskStatus.RUNNING).length);
+    console.log(
+      '- Processed:',
+      links.filter((l) => l.status === ScraperTaskStatus.PROCESSED).length,
+    );
+    console.log('- Failed:', links.filter((l) => l.status === ScraperTaskStatus.FAILED).length);
 
-    // 6. Ukážeme, jak můžeme manuálně zpracovat konkrétní odkaz
-    if (pendingLinks.length > 0) {
-      console.log(`Manuálně zpracovávám odkaz: ${pendingLinks[0].link}`);
-      const result = await processLink(task.id, pendingLinks[0].link);
-      console.log(`Výsledek zpracování: ${result.success ? 'Úspěch' : 'Selhání'}`);
-      if (result.success && result.business) {
-        console.log(`Získaná data: ${result.business.name}, ${result.business.address}`);
-      }
+    // Získání logů úlohy
+    const logs = await prisma.scraperLog.findMany({
+      where: { taskId: task.id },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    console.log('\nTask logs:');
+    logs.forEach((log: ScraperLog) => {
+      console.log(`[${log.level}] ${log.message}`);
+    });
+
+    // Získání získaných dat
+    const businesses = await prisma.business.findMany({
+      where: { taskId: task.id },
+    });
+
+    console.log('\nScraped businesses:', businesses.length);
+    businesses.forEach((business: Business) => {
+      console.log('-', business.name);
+      console.log('  Address:', business.address);
+      console.log('  Phone:', business.phone);
+      console.log('  Email:', business.email);
+      console.log('  Website:', business.website);
+      console.log('');
+    });
+
+    // Příklad pozastavení úlohy
+    if (updatedTask?.status === ScraperTaskStatus.RUNNING) {
+      await queue.pauseTask(task.id);
+      console.log('Task paused');
     }
 
-    return {
-      taskId: task.id,
-      status: updatedTask?.status,
-      linksCount: allLinks.length,
-      processedCount: processedLinks.length,
-      failedCount: failedLinks.length,
-      pendingCount: pendingLinks.length,
-    };
+    // Příklad obnovení úlohy
+    if (updatedTask?.status === ScraperTaskStatus.PAUSED) {
+      await queue.resumeTask(task.id);
+      console.log('Task resumed');
+    }
+
+    // Příklad opakování selhavších odkazů
+    if (updatedTask?.status === ScraperTaskStatus.FAILED) {
+      await queue.retryFailedLinks(task.id);
+      console.log('Retrying failed links');
+    }
+
+    // Příklad zpracování konkrétního odkazu
+    const pendingLink = links.find((l: ScrapedLink) => l.status === ScraperTaskStatus.PENDING);
+    if (pendingLink) {
+      await queue.processLink(task.id, pendingLink.link);
+      console.log('Processed specific link:', pendingLink.link);
+    }
   } catch (error) {
-    console.error('Chyba při spuštění ukázky fronty:', error);
-    throw error;
+    console.error('Error:', error);
   }
 }
 
-// Spustíme ukázku, pokud je soubor spuštěn přímo
+// Pokud je soubor spuštěn přímo
 if (require.main === module) {
-  runQueueExample()
-    .then((result) => {
-      console.log('Ukázka byla úspěšně dokončena:');
-      console.log(JSON.stringify(result, null, 2));
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Ukázka selhala:', error);
-      process.exit(1);
-    });
+  main().catch(console.error);
 }
-
-export default runQueueExample;

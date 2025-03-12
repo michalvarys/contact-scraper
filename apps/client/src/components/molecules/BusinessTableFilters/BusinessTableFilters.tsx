@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Input } from '@/components/atoms/Input';
 import { Button } from '@/components/atoms/Button';
 import { CategorySelect } from '@/components/molecules/CategorySelect';
-import { useUrlFilters } from '@/hooks';
+import { useUrlFilters } from '@/hooks/ui';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/utils';

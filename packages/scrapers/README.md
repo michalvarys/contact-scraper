@@ -1,105 +1,152 @@
-# Scrapery pro kontaktní údaje
+# Scraper Queue System
 
-Tento balíček obsahuje implementace scraperů pro získávání kontaktních údajů firem z různých zdrojů.
+Systém pro správu a řízení scraperů s podporou fronty úloh, sledováním stavu a možností pozastavení/obnovení.
 
-## Dostupné scrapery
+## Funkce
 
-- **GoogleMapsScraper** - Scraper pro Google Maps
-- **FirmyCzScraper** - Scraper pro Firmy.cz
-- **AiGoogleMapsScraper** - Scraper pro Google Maps s využitím AI pro extrakci dat
+- Správa úloh scraperů (vytvoření, spuštění, pozastavení, obnovení)
+- Sledování stavu úloh a jednotlivých odkazů
+- Ukládání logů a chybových hlášek
+- Možnost opakování selhavších odkazů
+- Podpora různých typů scraperů (Google Maps, Firmy.cz)
 
-## Mock data a testy
+## Architektura
 
-Balíček obsahuje mock data a testy pro všechny scrapery, které umožňují testování bez nutnosti přístupu k reálným datům.
+### ScraperQueue
 
-### Struktura mock dat
-
-Mock data jsou uložena v adresáři `src/__mocks__` a obsahují:
-
-- **businessMocks.ts** - Mock data pro business objekty, včetně:
-  - Ukázkové firmy z Google Maps
-  - Ukázkové firmy z Firmy.cz
-  - Ukázkové HTML obsahy stránek
-  - Ukázkové výsledky vyhledávání
-  - Ukázkové analýzy webových stránek
-
-- **serviceMocks.ts** - Mock implementace služeb používaných scrapery:
-  - MockBrowserManager - Mock pro správu prohlížeče
-  - MockGeminiService - Mock pro AI službu Gemini
-  - MockWebsiteAnalyzer - Mock pro analýzu webových stránek
-  - MockDatabaseManager - Mock pro správu databáze
-
-### Testy
-
-Testy jsou uloženy v adresáři `src/__tests__` a obsahují:
-
-- **GoogleMapsScraper.test.ts** - Testy pro GoogleMapsScraper
-- **FirmyCzScraper.test.ts** - Testy pro FirmyCzScraper
-- **AiGoogleMapsScraper.test.ts** - Testy pro AiGoogleMapsScraper
-
-### Spuštění testů
-
-Pro spuštění automatizovaných testů použijte:
-
-```bash
-npm test
-```
-
-Pro spuštění manuálních testů použijte:
-
-```bash
-npm run test:manual
-```
-
-## Použití mock dat ve vlastních testech
-
-Mock data můžete použít ve vlastních testech následujícím způsobem:
+Hlavní třída pro správu fronty scraperů. Implementuje návrhový vzor Singleton pro zajištění jediné instance fronty.
 
 ```typescript
-import { mockBusinesses, mockGoogleMapsHtml } from './__mocks__/businessMocks';
-import { mockBrowserManager, mockGeminiService } from './__mocks__/serviceMocks';
-
-// Použití mock dat
-const testBusiness = mockBusinesses.googleMapsCompany1;
-
-// Použití mock služeb
-const browserManager = mockBrowserManager;
-const geminiService = mockGeminiService;
+const queue = ScraperQueue.getInstance();
 ```
 
-## Přidání vlastních mock dat
+### Stavy úloh
 
-Pro přidání vlastních mock dat můžete rozšířit existující soubory nebo vytvořit nové v adresáři `src/__mocks__`.
+- `PENDING` - Čeká na zpracování
+- `RUNNING` - Probíhá zpracování
+- `PAUSED` - Pozastaveno
+- `COMPLETED` - Dokončeno
+- `FAILED` - Selhalo
+- `PROCESSED` - Zpracováno
+- `SKIPPED` - Přeskočeno
 
-Příklad přidání nového mock business objektu:
+### Metadata úlohy
+
+- ID úlohy
+- Typ scraperu
+- Konfigurace scraperu
+- Průmysl/obor
+- Region
+- Vyhledávací dotaz
+- Stav
+- Chybová hláška
+- Časy (vytvoření, spuštění, dokončení)
+- Seznam odkazů ke zpracování
+
+### Příklad použití
 
 ```typescript
-// Přidání do src/__mocks__/businessMocks.ts
-export const mockBusinesses: Record<string, Business> = {
-  // Existující mock data
-  googleMapsCompany1: { ... },
-  
-  // Nový mock objekt
-  myCustomBusiness: {
-    id: 'custom1',
-    name: 'Moje Firma',
-    address: 'Moje Adresa 123',
-    email: 'info@mojefirma.cz',
-    phone: '+420 123 456 789',
-    website: 'https://www.mojefirma.cz',
-    industry: 'IT',
-    region: 'Praha',
-    reviewsCount: 10,
-    categories: ['IT služby'],
-    link: 'https://www.google.com/maps/place/Moje+Firma',
-    scrapedAt: new Date().toISOString(),
+// Vytvoření nové úlohy
+const task = await prisma.scraperTask.create({
+  data: {
+    scraperType: 'GoogleMapsScraper',
+    scraperConfig: {
+      headless: true,
+    },
+    industry: 'restaurants',
+    region: 'Prague',
+    status: ScraperTaskStatus.PENDING,
+  },
+});
+
+// Spuštění úlohy
+await queue.processNextTask();
+
+// Pozastavení úlohy
+await queue.pauseTask(taskId);
+
+// Obnovení úlohy
+await queue.resumeTask(taskId);
+
+// Opakování selhavších odkazů
+await queue.retryFailedLinks(taskId);
+
+// Zpracování konkrétního odkazu
+await queue.processLink(taskId, link);
+```
+
+## Spuštění příkladů
+
+```bash
+# Instalace závislostí
+pnpm install
+
+# Spuštění příkladu fronty
+pnpm queue:example
+
+# Spuštění testovacího scraperu
+pnpm test:scraper
+
+# Spuštění unit testů
+pnpm test
+```
+
+## Rozšíření
+
+Pro přidání nového typu scraperu:
+
+1. Vytvořte novou třídu dědící z `BaseScraper`
+2. Implementujte metody `searchLinks` a `scrapeLink`
+3. Přidejte nový typ do `createScraper` v `ScraperQueue`
+
+```typescript
+class NewScraper extends BaseScraper {
+  public async searchLinks(query: string): Promise<string[]> {
+    // Implementace vyhledávání odkazů
   }
-};
+
+  public async scrapeLink(link: string): Promise<BaseBusinessData> {
+    // Implementace scrapování dat z odkazu
+  }
+}
 ```
 
-## Tipy pro testování
+## Použití v projektu
 
-1. **Izolace testů** - Každý test by měl být nezávislý na ostatních testech.
-2. **Resetování mocků** - Používejte `jest.clearAllMocks()` v `beforeEach` pro resetování mocků před každým testem.
-3. **Testování protected metod** - Pro testování protected metod můžete použít `@ts-ignore` nebo vytvořit testovací podtřídu.
-4. **Simulace chyb** - Testujte i chybové stavy pomocí `mockRejectedValue` nebo `mockImplementation` s throw.
+Scraper queue systém je integrován s TRPC API a může být použit přes endpointy v `packages/api/src/routers/scraper.ts`. Frontend komponenty pro správu úloh jsou dostupné v `apps/client/src/app/scraper-queue/`.
+
+## Testování
+
+Projekt obsahuje několik typů testů:
+
+### Unit testy
+
+Unit testy používají Jest a testují jednotlivé komponenty systému izolovaně. Testy jsou umístěny v adresáři `__tests__` a lze je spustit pomocí:
+
+```bash
+pnpm test
+```
+
+### Integrační testy
+
+Integrační testy testují spolupráci mezi komponentami systému. Používají mock implementaci databáze pro simulaci reálného prostředí.
+
+### Manuální testování
+
+Pro manuální testování jednotlivých scraperů lze použít testovací skript:
+
+```bash
+pnpm test:scraper
+```
+
+Tento skript spustí scraper v testovacím režimu a vypíše nalezené odkazy a získaná data.
+
+### Příklad fronty
+
+Pro otestování celého systému fronty včetně zpracování úloh lze použít ukázkový skript:
+
+```bash
+pnpm queue:example
+```
+
+Tento skript vytvoří testovací úlohu a demonstruje různé operace s frontou (pozastavení, obnovení, opakování selhavších odkazů).

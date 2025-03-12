@@ -100,6 +100,7 @@ enum ScraperTaskStatus {
   RUNNING // Právě běží
   COMPLETED // Úspěšně dokončen
   FAILED // Selhal s chybou
+  PROCESSED
   PAUSED // Pozastaven (např. manuálně)
 }
 
@@ -118,6 +119,7 @@ model ScrapedLink {
 
 enum ScrapedLinkStatus {
   PENDING // Čeká na zpracování
+  RUNNING // Právě běží
   PROCESSED // Úspěšně zpracován
   FAILED // Selhal s chybou
   SKIPPED // Přeskočen (např. už existuje v databázi)

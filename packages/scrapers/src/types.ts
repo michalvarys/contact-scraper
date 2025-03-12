@@ -1,63 +1,84 @@
-// types.ts - Definice typů
-export interface Business {
+export enum ScraperTaskStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  PROCESSED = 'PROCESSED',
+  SKIPPED = 'SKIPPED',
+}
+
+export interface ScraperTask {
   id: string;
-  name: string;
-  address: string;
-  email: string | null;
-  phone: string | null;
-  website: string | null;
+  scraperType: string;
+  scraperConfig: Record<string, any>;
   industry?: string;
   region?: string;
-  rating?: string;
-  reviewsCount: number;
-  reviews?: Review[];
-  categories?: string[];
-  openingHours?: string[];
+  searchQuery?: string;
+  status: ScraperTaskStatus;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  scrapedLinks: ScrapedLink[];
+}
+
+export interface ScrapedLink {
+  id: string;
+  taskId: string;
   link: string;
-  contacts?: Contact[];
-  scrapedAt: string;
+  status: ScraperTaskStatus;
+  processedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface Review {
-  rating: number;
-  text?: string;
+export interface ScraperLog {
+  id: string;
+  taskId: string;
+  level: 'INFO' | 'WARNING' | 'ERROR';
+  message: string;
+  createdAt: Date;
 }
 
-export interface Contact {
-  name?: string;
-  role?: string;
-  phone?: string;
-  email?: string;
+// Základní data o firmě, která scraper získává
+export interface BaseBusinessData {
+  name: string;
+  description?: string | null;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  openingHours?: string | null;
+  categories?: string[];
+  rating?: number | null;
+  reviewCount?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
-export interface ScraperOptions {
-  headless?: boolean;
-  industry?: string;
-  region?: string;
+// Data o firmě včetně metadat o scrapování
+export interface BusinessData extends BaseBusinessData {
+  taskId: string;
+  sourceLink: string;
 }
 
-export interface WebsiteAnalysisResult {
-  metadata: Record<string, string>;
-  email: string | null;
-  thumbnail: string | null;
-  // Nové vlastnosti pro screenshoty a analýzy
-  screenshots?: Record<string, any>;
-  viewportAnalyses?: Record<string, any>;
-  websiteAnalysis: {
-    seoScore: number | null;
-    errors: string[];
-    designScore: number | null;
-    modernityScore: number | null;
-    responsiveScore?: number | null;
-    recommendations?: string[];
-    viewportDetails?: Array<{
-      size: string;
-      seoScore: number | null;
-      designScore: number | null;
-      modernityScore: number | null;
-      errors: string[];
-      recommendations: string[];
-      responsiveIssues?: string[];
-    }>;
-  };
+// Data o firmě včetně databázových metadat
+export interface Business extends BusinessData {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ScraperQueueOptions {
+  maxConcurrentTasks?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
+  taskTimeout?: number;
+  linkTimeout?: number;
 }

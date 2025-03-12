@@ -1,51 +1,31 @@
 {
   "name": "@contact-scraper/scrapers",
-  "version": "1.0.0",
-  "description": "",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "exports": {
-    ".": "./src/index.ts"
-  },
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "scraper:test": "ts-node-dev --respawn --transpile-only src/test.ts",
-    "storage:example": "ts-node-dev --respawn --transpile-only src/examples/storage-example.ts",
+    "lint": "eslint .",
+    "build": "tsc",
     "test": "jest",
-    "test:manual": "ts-node-dev --transpile-only src/runTests.ts"
+    "setup": "bash src/scripts/make-executable.sh",
+    "test:scraper": "tsx src/scripts/run-test.ts",
+    "queue:example": "tsx src/scripts/run-queue-example.ts",
+    "postinstall": "pnpm setup"
   },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/__tests__/**/*.test.ts"
-    ],
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1"
-    },
-    "transform": {
-      "^.+\\.tsx?$": "ts-jest"
-    }
+  "dependencies": {
+    "@contact-scraper/database": "workspace:*",
+    "puppeteer": "^21.7.0"
   },
-  "keywords": [],
-  "author": "",
   "devDependencies": {
-    "@contact-scraper/auth": "workspace:*",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.6",
+    "@types/puppeteer": "^7.0.4",
     "@contact-scraper/config-eslint": "workspace:*",
     "@contact-scraper/config-typescript": "workspace:*",
-    "@contact-scraper/db": "workspace:*",
-    "@contact-scraper/storage": "workspace:*",
-    "@contact-scraper/types": "workspace:*",
-    "@types/jest": "^29.5.0",
-    "dotenv": "^16.4.7",
-    "jest": "^29.5.0",
-    "ts-jest": "^29.1.0",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.1.6"
-  },
-  "license": "ISC",
-  "dependencies": {
-    "@google/generative-ai": "^0.24.0",
-    "bull": "^4.16.5",
-    "p-limit": "^6.2.0"
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
   }
 }

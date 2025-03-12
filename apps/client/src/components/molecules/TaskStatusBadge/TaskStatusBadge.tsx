@@ -1,12 +1,12 @@
 import React from "react";
 import Badge from "@/components/atoms/Badge";
-import { ScraperTaskStatus } from "@/types/scraper";
+import { ScraperTaskStatus, ScrapedLinkStatus } from "@/types/scraper";
 
 export interface TaskStatusBadgeProps {
     /**
      * Stav úlohy
      */
-    status: ScraperTaskStatus;
+    status: ScraperTaskStatus | ScrapedLinkStatus;
     /**
      * Vlastní CSS třídy
      */
@@ -18,10 +18,12 @@ export interface TaskStatusBadgeProps {
  */
 const TaskStatusBadge: React.FC<TaskStatusBadgeProps> = ({ status, className }) => {
     // Mapování stavu na variantu pro Badge
-    const statusVariantMap: Record<ScraperTaskStatus, "default" | "success" | "warning" | "danger" | "info"> = {
+    const statusVariantMap: Record<ScraperTaskStatus | ScrapedLinkStatus, "default" | "success" | "warning" | "danger" | "info"> = {
         [ScraperTaskStatus.PENDING]: "warning",
         [ScraperTaskStatus.RUNNING]: "info",
         [ScraperTaskStatus.COMPLETED]: "success",
+        [ScraperTaskStatus.PROCESSED]: 'success',
+        [ScrapedLinkStatus.SKIPPED]: 'default',
         [ScraperTaskStatus.FAILED]: "danger",
         [ScraperTaskStatus.PAUSED]: "warning",
     };

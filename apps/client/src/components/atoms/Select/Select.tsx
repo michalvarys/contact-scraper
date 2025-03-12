@@ -1,4 +1,4 @@
-import React, { forwardRef, useId, useState } from "react";
+import React, { Children, forwardRef, isValidElement, ReactNode, useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 
@@ -37,10 +37,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
         const selectId = useId();
 
         // Najde popisek pro vybranou hodnotu
-        React.useEffect(() => {
+        useEffect(() => {
             // Najdi v dětech SelectItem s odpovídající hodnotou
-            React.Children.forEach(children, (child) => {
-                if (React.isValidElement(child) && 'value' in child.props && child.props.value === selectedValue) {
+            Children.forEach(children, (child) => {
+                if (isValidElement(child) && 'value' in child.props && child.props.value === selectedValue) {
                     if (typeof child.props.children === 'string') {
                         setDisplayValue(child.props.children);
                     }
@@ -49,7 +49,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
         }, [children, selectedValue]);
 
         // Aktualizace hodnoty z props
-        React.useEffect(() => {
+        useEffect(() => {
             if (value !== undefined && value !== selectedValue) {
                 setSelectedValue(value);
             }

@@ -1,6 +1,6 @@
 "use server"
 import { Suspense } from "react";
-import TaskDetail from "@/components/pages/TaskDetail";
+import TaskDetail from "@/pages/tasks/TaskDetailPage";
 import { Loader2 } from "lucide-react";
 
 interface TaskDetailPageProps {

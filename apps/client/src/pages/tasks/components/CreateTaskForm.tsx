@@ -1,0 +1,191 @@
+"use client";
+
+import { z } from "zod";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Button from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import Checkbox from "@/components/atoms/Checkbox";
+import { Select, SelectItem } from "@/components/atoms/Select";
+import { Loader2 } from "lucide-react";
+import { trpc } from "@/trpc/trpc";
+import {
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormDescription,
+    FormMessage
+} from "@/components/atoms/Form";
+import { useToast } from "@/hooks";
+
+// Schéma pro validaci formuláře
+const formSchema = z.object({
+    scraperType: z.string({
+        required_error: "Je nutné vybrat typ scraperu.",
+    }),
+    industry: z.string().optional(),
+    region: z.string().optional(),
+    searchQuery: z.string().optional(),
+    headless: z.boolean().default(true),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface CreateTaskFormProps {
+    onSuccess: () => void;
+}
+
+const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
+    // Získání dostupných typů scraperů
+    const { data: scraperTypes, isLoading: isLoadingTypes } = trpc.scraper.getScraperTypes.useQuery();
+    const { toast } = useToast();
+
+    // Mutace pro vytvoření nové úlohy
+    const createTaskMutation = trpc.scraper.createTask.useMutation({
+        onSuccess: (data) => {
+            toast({
+                title: "Úloha byla úspěšně vytvořena",
+                description: `Úloha ID: ${data.id} byla vytvořena a zařazena do fronty.`,
+                variant: "success",
+                duration: 5000,
+            });
+            onSuccess();
+            form.reset();
+        },
+        onError: (error) => {
+            toast({
+                title: "Chyba při vytváření úlohy",
+                description: error.message || "Nastala neočekávaná chyba při vytváření úlohy.",
+                variant: "destructive",
+                duration: 5000,
+            });
+        },
+    });
+
+    // Inicializace formuláře
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            industry: "",
+            region: "",
+            searchQuery: "",
+            headless: true,
+        },
+    });
+
+    // Odeslání formuláře
+    const onSubmit = (values: FormValues) => {
+        createTaskMutation.mutate({
+            scraperType: values.scraperType,
+            scraperConfig: {
+                industry: values.industry || undefined,
+                region: values.region || undefined,
+                headless: values.headless,
+            },
+            industry: values.industry || undefined,
+            region: values.region || undefined,
+            searchQuery: values.searchQuery || undefined,
+        });
+    };
+
+    const { register } = form;
+
+    return (
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+            <Controller control={form.control} name="scraperType" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Typ scraperu</FormLabel>
+                    <Select
+                        disabled={isLoadingTypes || createTaskMutation.isLoading}
+                        onValueChange={field.onChange}
+                        value={field.value}
+                    >
+                        <SelectItem value="">
+                            Vyberte typ scraperu
+                        </SelectItem>
+                        {scraperTypes?.map((type) => (
+                            <SelectItem key={type} value={type}>
+                                {type}
+                            </SelectItem>
+                        ))}
+                    </Select>
+                    <FormDescription>
+                        Vyberte typ scraperu, který chcete použít.
+                    </FormDescription>
+                    <FormMessage>{form.formState.errors.scraperType?.message}</FormMessage>
+                </FormItem>)} />
+
+            <div className="grid grid-cols-2 gap-4">
+                <FormItem>
+                    <FormLabel>Průmysl/obor</FormLabel>
+                    <FormControl>
+                        <Input
+                            disabled={createTaskMutation.isLoading}
+                            placeholder="Např. restaurace, hotely, ..."
+                            {...register('industry')}
+                        />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.industry?.message}</FormMessage>
+                </FormItem>
+                <FormItem>
+                    <FormLabel>Region</FormLabel>
+                    <FormControl>
+                        <Input
+                            disabled={createTaskMutation.isLoading}
+                            placeholder="Např. Praha, Brno, ..."
+                            {...register('region')}
+                        />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.region?.message}</FormMessage>
+                </FormItem>
+            </div>
+
+            <FormItem>
+                <FormLabel>Vyhledávací dotaz</FormLabel>
+                <FormControl>
+                    <Input
+                        disabled={createTaskMutation.isLoading}
+                        placeholder="Volitelný vyhledávací dotaz"
+                        {...register('searchQuery')}
+                    />
+                </FormControl>
+                <FormDescription>
+                    Pokud necháte prázdné, bude použit průmysl a region.
+                </FormDescription>
+                <FormMessage>{form.formState.errors.searchQuery?.message}</FormMessage>
+            </FormItem>
+
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                    <Checkbox
+                        disabled={createTaskMutation.isLoading}
+                        {...register('headless')}
+                    />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                    <FormLabel>Headless mód</FormLabel>
+                    <FormDescription>
+                        Povolit headless mód (bez zobrazení prohlížeče) pro rychlejší scrapování.
+                    </FormDescription>
+                </div>
+            </FormItem>
+
+            <Button
+                type="submit"
+                disabled={createTaskMutation.isLoading}
+                className="w-full"
+            >
+                {createTaskMutation.isLoading ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Vytvářím úlohu...
+                    </>
+                ) : (
+                    "Vytvořit úlohu"
+                )}
+            </Button>
+        </form>
+    );
+};
+
+export default CreateTaskForm;

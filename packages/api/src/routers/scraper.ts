@@ -1,163 +1,177 @@
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
-// Importujeme nástroje z balíčku scrapers
-import scraperQueue, {
-  ScraperTaskStatus,
-  ScrapedLinkStatus,
-  LogLevel,
-  createScraperTask,
-  runScraperTask,
-  resumeScraperTask,
-  pauseScraperTask,
-  getScraperTask,
-  getScraperTasks,
-  updateScraperTask,
-  processLink,
-  retryFailedLinks,
-  getTaskLinks,
-  getTaskLogs,
-  scraperProviders,
-} from '../../../scrapers/src/tools/scraperQueue';
+import { publicProcedure, router } from '../trpc';
+import { TRPCError } from '@trpc/server';
+import { prisma, ScraperTaskStatus, ScrapedLinkStatus } from '@contact-scraper/db';
 
-// Schéma pro validaci konfigurace scraperu
-const scraperConfigSchema = z
-  .object({
-    baseUrl: z.string().optional(),
-    industry: z.string().optional(),
-    region: z.string().optional(),
-    headless: z.boolean().optional(),
-  })
-  .passthrough();
+// Enum pro stavy úloh
+export { ScraperTaskStatus, ScrapedLinkStatus };
 
-// Schéma pro validaci vytvoření nové úlohy
-const createTaskSchema = z.object({
-  scraperType: z.string(),
-  scraperConfig: scraperConfigSchema,
-  searchQuery: z.string().optional(),
-  industry: z.string().optional(),
-  region: z.string().optional(),
-});
-
-// Schéma pro validaci aktualizace úlohy
-const updateTaskSchema = z.object({
-  status: z
-    .enum([
-      ScraperTaskStatus.PENDING,
-      ScraperTaskStatus.RUNNING,
-      ScraperTaskStatus.COMPLETED,
-      ScraperTaskStatus.FAILED,
-      ScraperTaskStatus.PAUSED,
-    ])
-    .optional(),
-  startedAt: z.date().optional(),
-  completedAt: z.date().optional(),
-  errorMessage: z.string().optional(),
-});
-
-// Exportujeme router pro scraper queue
 export const scraperRouter = router({
-  // Získání dostupných typů scraperů
-  getScraperTypes: publicProcedure.query(() => {
-    return Object.keys(scraperProviders);
+  getScraperTypes: publicProcedure.query(async () => {
+    return ['GoogleMapsScraper', 'FirmyCzScraper'];
   }),
 
-  // Vytvoření nové úlohy
-  createTask: publicProcedure.input(createTaskSchema).mutation(async ({ input }) => {
-    return await createScraperTask(input);
-  }),
-
-  // Získání všech úloh
-  getTasks: publicProcedure
-    .input(
-      z
-        .object({
-          status: z
-            .enum([
-              ScraperTaskStatus.PENDING,
-              ScraperTaskStatus.RUNNING,
-              ScraperTaskStatus.COMPLETED,
-              ScraperTaskStatus.FAILED,
-              ScraperTaskStatus.PAUSED,
-            ])
-            .optional(),
-        })
-        .optional(),
-    )
-    .query(async ({ input }) => {
-      return await getScraperTasks(input?.status);
-    }),
-
-  // Získání úlohy podle ID
-  getTask: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
-    return await getScraperTask(input.id);
-  }),
-
-  // Aktualizace úlohy
-  updateTask: publicProcedure
+  createTask: publicProcedure
     .input(
       z.object({
-        id: z.string(),
-        data: updateTaskSchema,
+        scraperType: z.string(),
+        scraperConfig: z.record(z.any()),
+        industry: z.string().optional(),
+        region: z.string().optional(),
+        searchQuery: z.string().optional(),
       }),
     )
     .mutation(async ({ input }) => {
-      return await updateScraperTask(input.id, input.data);
+      return prisma.scraperTask.create({
+        data: {
+          scraperType: input.scraperType,
+          scraperConfig:
+            typeof input.scraperConfig === 'string'
+              ? input.scraperConfig
+              : JSON.stringify(input.scraperConfig),
+          industry: input.industry,
+          region: input.region,
+          searchQuery: input.searchQuery,
+          status: ScraperTaskStatus.PENDING,
+        },
+      });
     }),
 
-  // Spuštění úlohy
-  runTask: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-    return await runScraperTask(input.id);
-  }),
+  getTasks: publicProcedure
+    .input(
+      z.object({
+        status: z.nativeEnum(ScraperTaskStatus).optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      return prisma.scraperTask.findMany({
+        where: input.status ? { status: input.status } : undefined,
+        include: {
+          scrapedLinks: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }),
 
-  // Pozastavení úlohy
-  pauseTask: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-    return await pauseScraperTask(input.id);
-  }),
+  getTask: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const task = await prisma.scraperTask.findUnique({
+        where: { id: input.id },
+        include: {
+          scrapedLinks: true,
+        },
+      });
 
-  // Pokračování v úloze
-  resumeTask: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-    return await resumeScraperTask(input.id);
-  }),
+      if (!task) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Task not found',
+        });
+      }
 
-  // Získání odkazů pro úlohu
+      return task;
+    }),
+
   getTaskLinks: publicProcedure
     .input(
       z.object({
         taskId: z.string(),
-        status: z
-          .enum([
-            ScrapedLinkStatus.PENDING,
-            ScrapedLinkStatus.PROCESSED,
-            ScrapedLinkStatus.FAILED,
-            ScrapedLinkStatus.SKIPPED,
-          ])
-          .optional(),
       }),
     )
     .query(async ({ input }) => {
-      return await getTaskLinks(input.taskId, input.status);
+      return prisma.scrapedLink.findMany({
+        where: { taskId: input.taskId },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
     }),
 
-  // Získání logů pro úlohu
   getTaskLogs: publicProcedure
     .input(
       z.object({
         taskId: z.string(),
-        level: z.enum([LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARNING, LogLevel.ERROR]).optional(),
       }),
     )
     .query(async ({ input }) => {
-      return await getTaskLogs(input.taskId, input.level);
+      return prisma.scraperTaskLog.findMany({
+        where: { taskId: input.taskId },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
     }),
 
-  // Opakování selhavších odkazů
-  retryFailedLinks: publicProcedure
-    .input(z.object({ taskId: z.string() }))
+  runTask: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
     .mutation(async ({ input }) => {
-      return await retryFailedLinks(input.taskId);
+      return prisma.scraperTask.update({
+        where: { id: input.id },
+        data: { status: ScraperTaskStatus.RUNNING },
+      });
     }),
 
-  // Zpracování konkrétního odkazu
+  pauseTask: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return prisma.scraperTask.update({
+        where: { id: input.id },
+        data: { status: ScraperTaskStatus.PAUSED },
+      });
+    }),
+
+  resumeTask: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return prisma.scraperTask.update({
+        where: { id: input.id },
+        data: { status: ScraperTaskStatus.RUNNING },
+      });
+    }),
+
+  retryFailedLinks: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await prisma.scrapedLink.updateMany({
+        where: {
+          taskId: input.taskId,
+          status: ScraperTaskStatus.FAILED,
+        },
+        data: {
+          status: ScraperTaskStatus.PENDING,
+          processedAt: null,
+        },
+      });
+
+      return prisma.scraperTask.update({
+        where: { id: input.taskId },
+        data: { status: ScraperTaskStatus.RUNNING },
+      });
+    }),
+
   processLink: publicProcedure
     .input(
       z.object({
@@ -166,6 +180,76 @@ export const scraperRouter = router({
       }),
     )
     .mutation(async ({ input }) => {
-      return await processLink(input.taskId, input.link);
+      return prisma.scrapedLink.updateMany({
+        where: {
+          taskId: input.taskId,
+          link: input.link,
+        },
+        data: {
+          status: ScrapedLinkStatus.RUNNING,
+        },
+      });
+    }),
+
+  updateTaskConfig: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+        config: z.record(z.any()),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return prisma.scraperTask.update({
+        where: { id: input.taskId },
+        data: {
+          scraperConfig:
+            typeof input.config === 'string' ? input.config : JSON.stringify(input.config),
+        },
+      });
+    }),
+
+  addLink: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+        link: z.string().url(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      // Kontrola, zda úloha existuje
+      const task = await prisma.scraperTask.findUnique({
+        where: { id: input.taskId },
+      });
+
+      if (!task) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Task not found',
+        });
+      }
+
+      // Kontrola, zda odkaz již neexistuje
+      const existingLink = await prisma.scrapedLink.findFirst({
+        where: {
+          taskId: input.taskId,
+          link: input.link,
+        },
+      });
+
+      if (existingLink) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Link already exists for this task',
+        });
+      }
+
+      // Přidání nového odkazu
+      return prisma.scrapedLink.create({
+        data: {
+          taskId: input.taskId,
+          link: input.link,
+          status: ScrapedLinkStatus.PENDING,
+        },
+      });
     }),
 });
