@@ -1,6 +1,6 @@
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { AddLinkFormValues } from '@/pages/tasks/hooks/useTaskLinks';
+import { AddLinkFormValues } from '@/sections/tasks/hooks/useTaskLinks';
 import Button from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Loader2 } from 'lucide-react';

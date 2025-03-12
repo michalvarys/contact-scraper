@@ -1,7 +1,7 @@
 import { createSSRHelper } from "@/trpc/server";
 import Hydrate from "@/trpc/dydrate";
 import { dehydrate } from "@tanstack/react-query";
-import BusinessListPage from "@/pages/main/BusinessListPage"
+import BusinessListPage from "@/sections/main/BusinessListPage"
 
 // src/app/page.tsx
 export default async function Home() {

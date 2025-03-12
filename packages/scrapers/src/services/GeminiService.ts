@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { repairTruncatedJsonArray } from '../tools/json';
 import dotenv from 'dotenv';
-import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
+import { AiGoogleMapsScraper } from '../AiGoogleMapsScraper';
 import fs from 'fs';
 import path from 'path';
 

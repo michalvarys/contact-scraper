@@ -21,7 +21,7 @@ import TaskStatusBadge from '@/components/molecules/TaskStatusBadge';
 import { formatDate } from '../utils/date';
 import { AddLinkForm } from './AddLinkForm';
 import { UseFormReturn } from 'react-hook-form';
-import { AddLinkFormValues } from '@/pages/tasks/hooks/useTaskLinks';
+import { AddLinkFormValues } from '@/sections/tasks/hooks/useTaskLinks';
 
 interface TaskDetailLinksProps {
     task: ScraperTask;

@@ -1,7 +1,7 @@
 import { createSSRHelper } from "@/trpc/server";
 import Hydrate from "@/trpc/dydrate";
 import { dehydrate } from "@tanstack/react-query";
-import DuplicateBusinessListPage from "@/pages/main/DuplicateBusinessListPage";
+import DuplicateBusinessListPage from "@/sections/main/DuplicateBusinessListPage";
 
 export default async function DuplicatesPage() {
     const helpers = await createSSRHelper();
