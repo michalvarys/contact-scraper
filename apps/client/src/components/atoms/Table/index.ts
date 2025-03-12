@@ -1,2 +1,16 @@
-export * from './Table';
-export { default } from './Table';
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableFooter,
+  type TableProps,
+  type TableHeaderProps,
+  type TableBodyProps,
+  type TableRowProps,
+  type TableHeadProps,
+  type TableCellProps,
+  type TableFooterProps,
+} from './Table';

@@ -1,328 +1,169 @@
-import * as React from "react";
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import React, { forwardRef, useId, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
-export interface SelectProps extends React.ComponentProps<typeof SelectPrimitive.Root> {
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
     /**
-     * Obsah selectu
+     * Obsah Select komponenty (obvykle SelectItem)
      */
     children: React.ReactNode;
-}
-
-/**
- * Atomická komponenta pro select
- * 
- * @example
- * ```tsx
- * <Select onValueChange={(value) => console.log(value)}>
- *   <SelectTrigger>
- *     <SelectValue placeholder="Vyberte..." />
- *   </SelectTrigger>
- *   <SelectContent>
- *     <SelectItem value="1">Položka 1</SelectItem>
- *     <SelectItem value="2">Položka 2</SelectItem>
- *   </SelectContent>
- * </Select>
- * ```
- */
-export const Select: React.FC<SelectProps> = (props) => {
-    return <SelectPrimitive.Root data-slot="select" {...props} />;
-};
-
-Select.displayName = "Select";
-
-export interface SelectGroupProps extends React.ComponentProps<typeof SelectPrimitive.Group> {
     /**
-     * Vlastní CSS třídy
+     * Hodnota komponenty
      */
-    className?: string;
+    value?: string;
     /**
-     * Obsah skupiny
+     * Výchozí hodnota
      */
-    children: React.ReactNode;
-}
-
-/**
- * Atomická komponenta pro skupinu položek v selectu
- */
-export const SelectGroup = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Group>,
-    SelectGroupProps
->(({ ...props }, ref) => {
-    return <SelectPrimitive.Group ref={ref} data-slot="select-group" {...props} />;
-});
-
-SelectGroup.displayName = "SelectGroup";
-
-export interface SelectValueProps extends React.ComponentProps<typeof SelectPrimitive.Value> {
+    defaultValue?: string;
     /**
-     * Placeholder pro prázdnou hodnotu
+     * Callback při změně hodnoty
+     */
+    onValueChange?: (value: string) => void;
+    /**
+     * Zakázat komponentu
+     */
+    disabled?: boolean;
+    /**
+     * Placeholder text při nevybrané hodnotě
      */
     placeholder?: string;
 }
 
-/**
- * Atomická komponenta pro hodnotu selectu
- */
-export const SelectValue = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Value>,
-    SelectValueProps
->(({ ...props }, ref) => {
-    return <SelectPrimitive.Value ref={ref} data-slot="select-value" {...props} />;
-});
+const Select = forwardRef<HTMLDivElement, SelectProps>(
+    ({ children, className, defaultValue, value, onValueChange, disabled, ...props }, ref) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [selectedValue, setSelectedValue] = useState(value || defaultValue || "");
+        const [displayValue, setDisplayValue] = useState<string>("");
+        const selectId = useId();
 
-SelectValue.displayName = "SelectValue";
+        // Najde popisek pro vybranou hodnotu
+        React.useEffect(() => {
+            // Najdi v dětech SelectItem s odpovídající hodnotou
+            React.Children.forEach(children, (child) => {
+                if (React.isValidElement(child) && 'value' in child.props && child.props.value === selectedValue) {
+                    if (typeof child.props.children === 'string') {
+                        setDisplayValue(child.props.children);
+                    }
+                }
+            });
+        }, [children, selectedValue]);
 
-export interface SelectTriggerProps extends React.ComponentProps<typeof SelectPrimitive.Trigger> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-    /**
-     * Obsah triggeru
-     */
-    children: React.ReactNode;
-}
+        // Aktualizace hodnoty z props
+        React.useEffect(() => {
+            if (value !== undefined && value !== selectedValue) {
+                setSelectedValue(value);
+            }
+        }, [value]);
 
-/**
- * Atomická komponenta pro trigger selectu
- */
-export const SelectTrigger = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Trigger>,
-    SelectTriggerProps
->(({ className, children, ...props }, ref) => {
-    return (
-        <SelectPrimitive.Trigger
-            ref={ref}
-            data-slot="select-trigger"
-            className={cn(
-                "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex h-9 w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-                className
-            )}
-            {...props}
-        >
-            {children}
-            <SelectPrimitive.Icon asChild>
-                <ChevronDownIcon className="size-4 opacity-50" />
-            </SelectPrimitive.Icon>
-        </SelectPrimitive.Trigger>
-    );
-});
+        const handleSelect = (value: string) => {
+            setSelectedValue(value);
+            setIsOpen(false);
+            if (onValueChange) {
+                onValueChange(value);
+            }
+        };
 
-SelectTrigger.displayName = "SelectTrigger";
-
-export interface SelectContentProps extends React.ComponentProps<typeof SelectPrimitive.Content> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-    /**
-     * Obsah selectu
-     */
-    children: React.ReactNode;
-    /**
-     * Pozice selectu
-     */
-    position?: "popper" | "item-aligned";
-}
-
-/**
- * Atomická komponenta pro obsah selectu
- */
-export const SelectContent = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Content>,
-    SelectContentProps
->(({ className, children, position = "popper", ...props }, ref) => {
-    return (
-        <SelectPrimitive.Portal>
-            <SelectPrimitive.Content
-                ref={ref}
-                data-slot="select-content"
+        return (
+            <div
                 className={cn(
-                    "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border shadow-md",
-                    position === "popper" &&
-                    "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+                    "relative w-full",
                     className
                 )}
-                position={position}
+                ref={ref}
+            >
+                <div
+                    className={cn(
+                        "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                        isOpen && "ring-1 ring-ring",
+                        disabled && "opacity-50 cursor-not-allowed"
+                    )}
+                    onClick={() => !disabled && setIsOpen(!isOpen)}
+                    id={selectId}
+                    aria-expanded={isOpen}
+                    aria-haspopup="listbox"
+                    aria-disabled={disabled}
+                    role="combobox"
+                >
+                    <span className={cn(!selectedValue && "text-muted-foreground")}>
+                        {displayValue || props.placeholder || "Vyberte možnost"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                </div>
+                {isOpen && !disabled && (
+                    <div
+                        className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+                        role="listbox"
+                        aria-labelledby={selectId}
+                    >
+                        <div className="p-1">
+                            {React.Children.map(children, (child) => {
+                                if (React.isValidElement(child)) {
+                                    // Předáme handleSelect do každého SelectItem
+                                    return React.cloneElement(child, {
+                                        onSelect: handleSelect,
+                                        isSelected: child.props.value === selectedValue,
+                                    });
+                                }
+                                return child;
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+);
+
+Select.displayName = "Select";
+
+export interface SelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
+    /**
+     * Hodnota položky
+     */
+    value: string;
+    /**
+     * Callback pro výběr položky (interně použitý)
+     */
+    onSelect?: (value: string) => void;
+    /**
+     * Je položka vybrána? (interně použitý)
+     */
+    isSelected?: boolean;
+}
+
+const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
+    ({ className, children, value, onSelect, isSelected, ...props }, ref) => {
+        return (
+            <div
+                ref={ref}
+                className={cn(
+                    "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-accent hover:text-accent-foreground",
+                    isSelected && "bg-accent text-accent-foreground",
+                    className
+                )}
+                onClick={() => onSelect && onSelect(value)}
+                role="option"
+                aria-selected={isSelected}
                 {...props}
             >
-                <SelectScrollUpButton />
-                <SelectPrimitive.Viewport
-                    className={cn(
-                        "p-1",
-                        position === "popper" &&
-                        "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-                    )}
-                >
-                    {children}
-                </SelectPrimitive.Viewport>
-                <SelectScrollDownButton />
-            </SelectPrimitive.Content>
-        </SelectPrimitive.Portal>
-    );
-});
-
-SelectContent.displayName = "SelectContent";
-
-export interface SelectLabelProps extends React.ComponentProps<typeof SelectPrimitive.Label> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-    /**
-     * Obsah labelu
-     */
-    children: React.ReactNode;
-}
-
-/**
- * Atomická komponenta pro label selectu
- */
-export const SelectLabel = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Label>,
-    SelectLabelProps
->(({ className, ...props }, ref) => {
-    return (
-        <SelectPrimitive.Label
-            ref={ref}
-            data-slot="select-label"
-            className={cn("px-2 py-1.5 text-sm font-medium", className)}
-            {...props}
-        />
-    );
-});
-
-SelectLabel.displayName = "SelectLabel";
-
-export interface SelectItemProps extends React.ComponentProps<typeof SelectPrimitive.Item> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-    /**
-     * Obsah položky
-     */
-    children: React.ReactNode;
-}
-
-/**
- * Atomická komponenta pro položku selectu
- */
-export const SelectItem = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Item>,
-    SelectItemProps
->(({ className, children, ...props }, ref) => {
-    return (
-        <SelectPrimitive.Item
-            ref={ref}
-            data-slot="select-item"
-            className={cn(
-                "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-                className
-            )}
-            {...props}
-            value={props.value || '-'}
-        >
-            <span className="absolute right-2 flex size-3.5 items-center justify-center">
-                <SelectPrimitive.ItemIndicator>
-                    <CheckIcon className="size-4" />
-                </SelectPrimitive.ItemIndicator>
-            </span>
-            <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-        </SelectPrimitive.Item>
-    );
-});
+                {children}
+                {isSelected && (
+                    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M11.4669 3.72684C11.7558 3.91574 11.8369 4.30308 11.648 4.59198L7.39799 11.092C7.29783 11.2452 7.13556 11.3467 6.95402 11.3699C6.77247 11.3931 6.58989 11.3355 6.45446 11.2124L3.70446 8.71241C3.44905 8.48022 3.43023 8.08494 3.66242 7.82953C3.89461 7.57412 4.28989 7.55529 4.5453 7.78749L6.75292 9.79441L10.6018 3.90792C10.7907 3.61902 11.178 3.53795 11.4669 3.72684Z"
+                                fill="currentColor"
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                            ></path>
+                        </svg>
+                    </span>
+                )}
+            </div>
+        );
+    }
+);
 
 SelectItem.displayName = "SelectItem";
 
-export interface SelectSeparatorProps extends React.ComponentProps<typeof SelectPrimitive.Separator> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-}
-
-/**
- * Atomická komponenta pro oddělovač v selectu
- */
-export const SelectSeparator = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Separator>,
-    SelectSeparatorProps
->(({ className, ...props }, ref) => {
-    return (
-        <SelectPrimitive.Separator
-            ref={ref}
-            data-slot="select-separator"
-            className={cn("bg-border pointer-events-none -mx-1 my-1 h-px", className)}
-            {...props}
-        />
-    );
-});
-
-SelectSeparator.displayName = "SelectSeparator";
-
-export interface SelectScrollUpButtonProps extends React.ComponentProps<typeof SelectPrimitive.ScrollUpButton> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-}
-
-/**
- * Atomická komponenta pro tlačítko pro scrollování nahoru v selectu
- */
-export const SelectScrollUpButton = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
-    SelectScrollUpButtonProps
->(({ className, ...props }, ref) => {
-    return (
-        <SelectPrimitive.ScrollUpButton
-            ref={ref}
-            data-slot="select-scroll-up-button"
-            className={cn(
-                "flex cursor-default items-center justify-center py-1",
-                className
-            )}
-            {...props}
-        >
-            <ChevronUpIcon className="size-4" />
-        </SelectPrimitive.ScrollUpButton>
-    );
-});
-
-SelectScrollUpButton.displayName = "SelectScrollUpButton";
-
-export interface SelectScrollDownButtonProps extends React.ComponentProps<typeof SelectPrimitive.ScrollDownButton> {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-}
-
-/**
- * Atomická komponenta pro tlačítko pro scrollování dolů v selectu
- */
-export const SelectScrollDownButton = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
-    SelectScrollDownButtonProps
->(({ className, ...props }, ref) => {
-    return (
-        <SelectPrimitive.ScrollDownButton
-            ref={ref}
-            data-slot="select-scroll-down-button"
-            className={cn(
-                "flex cursor-default items-center justify-center py-1",
-                className
-            )}
-            {...props}
-        >
-            <ChevronDownIcon className="size-4" />
-        </SelectPrimitive.ScrollDownButton>
-    );
-});
-
-SelectScrollDownButton.displayName = "SelectScrollDownButton";
-
-export default Select;
+export { Select, SelectItem };

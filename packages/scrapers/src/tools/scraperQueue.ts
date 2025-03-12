@@ -1,193 +1,592 @@
-import { scraperQueueService } from '../services/ScraperQueueService';
-import scraperProviders from '../providers/ScraperProviders';
-import {
-  ScraperTaskStatus,
-  ScrapedLinkStatus,
-  LogLevel,
-  ScraperTask,
-  ScrapedLink,
-  ScraperTaskLog,
-  CreateScraperTaskParams,
-  UpdateScraperTaskParams,
-  CreateScrapedLinkParams,
-  UpdateScrapedLinkParams,
-  CreateScraperTaskLogParams,
-  ProcessLinkResult,
-  LinkProcessCallback,
-  LogCallback,
-  ScraperInitParams,
-  ScraperProvider,
-} from '../types/queue';
+import { PrismaClient } from '@contact-scraper/db';
+import { FirmyCzScraper } from '../FirmyCzScraper';
+import { GoogleMapsScraper } from '../GoogleMapsScraper';
+import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
+import { BaseScraper } from '../BaseScraper';
+import { Business } from '../types';
 
-// Registrace všech poskytovatelů scraperů
-Object.entries(scraperProviders).forEach(([type, provider]) => {
-  scraperQueueService.registerScraperProvider(type, provider);
-});
+// Rozšířené rozhraní pro scraper používaný v queue
+interface QueueScraper extends BaseScraper {
+  search(query: string): Promise<string[]>;
+  scrape(link: string): Promise<Business>;
+}
 
-/**
- * Vytvoří novou úlohu pro scraper
- *
- * @example
- * ```typescript
- * // Vytvoření úlohy pro Google Maps Scraper
- * const task = await createScraperTask({
- *   scraperType: 'GoogleMapsScraper',
- *   scraperConfig: {
- *     industry: 'restaurace',
- *     region: 'Praha',
- *     headless: false
- *   },
- * });
- *
- * // Spuštění úlohy
- * const result = await runScraperTask(task.id);
- * ```
- */
-export const createScraperTask = async (params: CreateScraperTaskParams): Promise<ScraperTask> => {
-  return await scraperQueueService.createTask(params);
+// Typy pro scraper providery
+type ScraperConstructor = new (config: any) => QueueScraper;
+
+// Definice typů
+export enum ScraperTaskStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+export enum ScrapedLinkStatus {
+  PENDING = 'PENDING',
+  PROCESSED = 'PROCESSED',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARNING = 'WARNING',
+  ERROR = 'ERROR',
+}
+
+// Typ pro konfiguraci scraperu
+export interface ScraperConfig {
+  baseUrl?: string;
+  industry?: string;
+  region?: string;
+  headless?: boolean;
+  [key: string]: any;
+}
+
+// Rozhraní pro vytvoření úlohy scraperu
+export interface CreateScraperTaskInput {
+  scraperType: string;
+  scraperConfig: ScraperConfig;
+  searchQuery?: string;
+  industry?: string;
+  region?: string;
+}
+
+// Napojení na databázi
+const prisma = new PrismaClient();
+
+// Nastavení poskytovatelů scraperů
+export const scraperProviders: { [key: string]: ScraperConstructor } = {
+  FirmyCzScraper: FirmyCzScraper as unknown as ScraperConstructor,
+  GoogleMapsScraper: GoogleMapsScraper as unknown as ScraperConstructor,
+  AiGoogleMapsScraper: AiGoogleMapsScraper as unknown as ScraperConstructor,
 };
 
-/**
- * Spustí zpracování úlohy scraperu
- */
-export const runScraperTask = async (taskId: string): Promise<ScraperTask> => {
-  return await scraperQueueService.runTask(taskId);
-};
+// Vytvoření nové úlohy scraperu
+export async function createScraperTask(input: CreateScraperTaskInput) {
+  const config =
+    typeof input.scraperConfig === 'string'
+      ? input.scraperConfig
+      : JSON.stringify(input.scraperConfig);
 
-/**
- * Pokračuje v přerušené úloze
- */
-export const resumeScraperTask = async (taskId: string): Promise<ScraperTask> => {
-  return await scraperQueueService.resumeTask(taskId);
-};
+  return await prisma.scraperTask.create({
+    data: {
+      scraperType: input.scraperType,
+      scraperConfig: config,
+      status: ScraperTaskStatus.PENDING,
+      industry: input.industry,
+      region: input.region,
+      searchQuery: input.searchQuery,
+    },
+  });
+}
 
-/**
- * Pozastaví běžící úlohu
- */
-export const pauseScraperTask = async (taskId: string): Promise<ScraperTask> => {
-  return await scraperQueueService.pauseTask(taskId);
-};
+// Získání všech úloh
+export async function getScraperTasks(status?: ScraperTaskStatus) {
+  const filter = status ? { where: { status } } : {};
+  return await prisma.scraperTask.findMany({
+    ...filter,
+    include: {
+      scrapedLinks: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
 
-/**
- * Získá úlohu podle ID
- */
-export const getScraperTask = async (taskId: string): Promise<ScraperTask | null> => {
-  return await scraperQueueService.getTask(taskId);
-};
+// Získání konkrétní úlohy
+export async function getScraperTask(id: string) {
+  return await prisma.scraperTask.findUnique({
+    where: { id },
+    include: {
+      scrapedLinks: true,
+    },
+  });
+}
 
-/**
- * Získá seznam úloh podle stavu
- */
-export const getScraperTasks = async (status?: ScraperTaskStatus): Promise<ScraperTask[]> => {
-  return await scraperQueueService.getTasks(status);
-};
+// Aktualizace úlohy
+export async function updateScraperTask(id: string, data: any) {
+  return await prisma.scraperTask.update({
+    where: { id },
+    data,
+  });
+}
 
-/**
- * Aktualizuje stav úlohy scraperu
- */
-export const updateScraperTask = async (
-  taskId: string,
-  params: UpdateScraperTaskParams,
-): Promise<ScraperTask> => {
-  return await scraperQueueService.updateTask(taskId, params);
-};
+// Spuštění úlohy
+export async function runScraperTask(id: string) {
+  // Nalezení úlohy
+  const task = await prisma.scraperTask.findUnique({
+    where: { id },
+  });
 
-/**
- * Zpracuje konkrétní odkaz v rámci úlohy
- */
-export const processLink = async (taskId: string, link: string): Promise<ProcessLinkResult> => {
-  return await scraperQueueService.processLink(taskId, link);
-};
+  if (!task) {
+    throw new Error(`Task with id ${id} not found`);
+  }
 
-/**
- * Znovu spustí zpracování selhavších odkazů v rámci úlohy
- */
-export const retryFailedLinks = async (taskId: string): Promise<number> => {
-  return await scraperQueueService.retryFailedLinks(taskId);
-};
+  // Kontrola, že úloha může být spuštěna
+  if (task.status === ScraperTaskStatus.RUNNING) {
+    throw new Error('Task is already running');
+  }
 
-/**
- * Vytvoří nový odkaz ke zpracování
- */
-export const createScrapedLink = async (params: CreateScrapedLinkParams): Promise<ScrapedLink> => {
-  return await scraperQueueService.createLink(params);
-};
+  // Aktualizace stavu úlohy
+  await prisma.scraperTask.update({
+    where: { id },
+    data: {
+      status: ScraperTaskStatus.RUNNING,
+      startedAt: new Date(),
+      errorMessage: null,
+    },
+  });
 
-/**
- * Aktualizuje stav odkazu
- */
-export const updateScrapedLink = async (
-  linkId: string,
-  params: UpdateScrapedLinkParams,
-): Promise<ScrapedLink> => {
-  return await scraperQueueService.updateLink(linkId, params);
-};
+  // Vytvoření instance scraperu
+  const ScraperClass = scraperProviders[task.scraperType];
+  if (!ScraperClass) {
+    await prisma.scraperTask.update({
+      where: { id },
+      data: {
+        status: ScraperTaskStatus.FAILED,
+        errorMessage: `Unknown scraper type: ${task.scraperType}`,
+      },
+    });
+    throw new Error(`Unknown scraper type: ${task.scraperType}`);
+  }
 
-/**
- * Získá odkazy pro danou úlohu podle stavu
- */
-export const getTaskLinks = async (
-  taskId: string,
-  status?: ScrapedLinkStatus,
-): Promise<ScrapedLink[]> => {
-  return await scraperQueueService.getLinks(taskId, status);
-};
+  // Spuštění scraperu v asynchronním režimu
+  setTimeout(async () => {
+    try {
+      const config =
+        typeof task.scraperConfig === 'string'
+          ? JSON.parse(task.scraperConfig)
+          : task.scraperConfig;
 
-/**
- * Vytvoří nový log pro úlohu
- */
-export const logScraperTask = async (
-  params: CreateScraperTaskLogParams,
-): Promise<ScraperTaskLog> => {
-  return await scraperQueueService.log(params);
-};
+      const scraper = new ScraperClass(config);
 
-/**
- * Získá logy pro danou úlohu
- */
-export const getTaskLogs = async (taskId: string, level?: LogLevel): Promise<ScraperTaskLog[]> => {
-  return await scraperQueueService.getLogs(taskId, level);
-};
+      // Log spuštění
+      await prisma.scraperTaskLog.create({
+        data: {
+          taskId: task.id,
+          level: LogLevel.INFO,
+          message: `Starting scraper ${task.scraperType}`,
+        },
+      });
 
-// Re-export typů
-export {
-  ScraperTaskStatus,
-  ScrapedLinkStatus,
-  LogLevel,
-  ScraperTask,
-  ScrapedLink,
-  ScraperTaskLog,
-  CreateScraperTaskParams,
-  UpdateScraperTaskParams,
-  CreateScrapedLinkParams,
-  UpdateScrapedLinkParams,
-  CreateScraperTaskLogParams,
-  ProcessLinkResult,
-  LinkProcessCallback,
-  LogCallback,
-  ScraperInitParams,
-  ScraperProvider,
-};
+      // Vyhledání odkazů
+      let searchQuery = task.searchQuery;
+      if (!searchQuery && (task.industry || task.region)) {
+        searchQuery = `${task.industry || ''} ${task.region || ''}`.trim();
+      }
 
-// Export instance služby pro případné pokročilé použití
-export { scraperQueueService, scraperProviders };
+      if (!searchQuery) {
+        await prisma.scraperTask.update({
+          where: { id: task.id },
+          data: {
+            status: ScraperTaskStatus.FAILED,
+            errorMessage: 'No search query provided',
+          },
+        });
+        return;
+      }
 
-// Default export pro zjednodušené použití
+      // Zahájení vyhledávání
+      try {
+        await prisma.scraperTaskLog.create({
+          data: {
+            taskId: task.id,
+            level: LogLevel.INFO,
+            message: `Searching for: ${searchQuery}`,
+          },
+        });
+
+        const links = await scraper.search(searchQuery);
+
+        // Uložení nalezených odkazů
+        for (const link of links) {
+          try {
+            await prisma.scrapedLink.create({
+              data: {
+                taskId: task.id,
+                link,
+                status: ScrapedLinkStatus.PENDING,
+              },
+            });
+          } catch (error) {
+            // Pokud odkaz již existuje, přeskočit
+            console.error(`Failed to save link ${link}:`, error);
+          }
+        }
+
+        await prisma.scraperTaskLog.create({
+          data: {
+            taskId: task.id,
+            level: LogLevel.INFO,
+            message: `Found ${links.length} links`,
+          },
+        });
+      } catch (error: any) {
+        await prisma.scraperTaskLog.create({
+          data: {
+            taskId: task.id,
+            level: LogLevel.ERROR,
+            message: `Error during search: ${error.message}`,
+          },
+        });
+
+        await prisma.scraperTask.update({
+          where: { id: task.id },
+          data: {
+            status: ScraperTaskStatus.FAILED,
+            errorMessage: `Error during search: ${error.message}`,
+          },
+        });
+        return;
+      }
+
+      // Získání všech odkazů ke zpracování
+      const linksToProccess = await prisma.scrapedLink.findMany({
+        where: {
+          taskId: task.id,
+          status: ScrapedLinkStatus.PENDING,
+        },
+      });
+
+      // Zpracování jednotlivých odkazů
+      for (const link of linksToProccess) {
+        // Kontrola, zda úloha nebyla zastavena
+        const currentTask = await prisma.scraperTask.findUnique({
+          where: { id: task.id },
+        });
+
+        if (currentTask.status !== ScraperTaskStatus.RUNNING) {
+          return;
+        }
+
+        try {
+          await prisma.scraperTaskLog.create({
+            data: {
+              taskId: task.id,
+              level: LogLevel.INFO,
+              message: `Processing link: ${link.link}`,
+            },
+          });
+
+          // Zpracování odkazu
+          const result = await scraper.scrape(link.link);
+
+          if (result) {
+            // Uložení výsledku
+            await prisma.scrapedLink.update({
+              where: { id: link.id },
+              data: {
+                status: ScrapedLinkStatus.PROCESSED,
+                processedAt: new Date(),
+                metadata: JSON.stringify(result),
+              },
+            });
+
+            // Uložení detailů o firmě
+            if (result.name) {
+              try {
+                await prisma.business.create({
+                  data: {
+                    ...result,
+                    link: link.link,
+                  },
+                });
+              } catch (error) {
+                await prisma.scraperTaskLog.create({
+                  data: {
+                    taskId: task.id,
+                    level: LogLevel.WARNING,
+                    message: `Failed to save business data: ${error.message}`,
+                  },
+                });
+              }
+            }
+          } else {
+            await prisma.scrapedLink.update({
+              where: { id: link.id },
+              data: {
+                status: ScrapedLinkStatus.SKIPPED,
+                processedAt: new Date(),
+              },
+            });
+          }
+        } catch (error) {
+          await prisma.scraperTaskLog.create({
+            data: {
+              taskId: task.id,
+              level: LogLevel.ERROR,
+              message: `Error processing link ${link.link}: ${error.message}`,
+            },
+          });
+
+          await prisma.scrapedLink.update({
+            where: { id: link.id },
+            data: {
+              status: ScrapedLinkStatus.FAILED,
+              processedAt: new Date(),
+              errorMessage: error.message,
+            },
+          });
+        }
+      }
+
+      // Dokončení úlohy
+      await prisma.scraperTask.update({
+        where: { id: task.id },
+        data: {
+          status: ScraperTaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      });
+
+      await prisma.scraperTaskLog.create({
+        data: {
+          taskId: task.id,
+          level: LogLevel.INFO,
+          message: 'Task completed successfully',
+        },
+      });
+    } catch (error) {
+      await prisma.scraperTaskLog.create({
+        data: {
+          taskId: task.id,
+          level: LogLevel.ERROR,
+          message: `Task failed: ${error.message}`,
+        },
+      });
+
+      await prisma.scraperTask.update({
+        where: { id: task.id },
+        data: {
+          status: ScraperTaskStatus.FAILED,
+          errorMessage: error.message,
+        },
+      });
+    }
+  }, 0);
+
+  return await prisma.scraperTask.findUnique({
+    where: { id },
+    include: {
+      scrapedLinks: true,
+    },
+  });
+}
+
+// Pozastavení úlohy
+export async function pauseScraperTask(id: string) {
+  return await prisma.scraperTask.update({
+    where: { id },
+    data: {
+      status: ScraperTaskStatus.PAUSED,
+    },
+  });
+}
+
+// Pokračování v úloze
+export async function resumeScraperTask(id: string) {
+  return await runScraperTask(id);
+}
+
+// Zpracování konkrétního odkazu
+export async function processLink(taskId: string, linkUrl: string) {
+  // Nalezení odkazu
+  const link = await prisma.scrapedLink.findFirst({
+    where: {
+      taskId,
+      link: linkUrl,
+    },
+  });
+
+  if (!link) {
+    throw new Error(`Link ${linkUrl} not found for task ${taskId}`);
+  }
+
+  // Nalezení úlohy
+  const task = await prisma.scraperTask.findUnique({
+    where: { id: taskId },
+  });
+
+  if (!task) {
+    throw new Error(`Task with id ${taskId} not found`);
+  }
+
+  // Vytvoření instance scraperu
+  const ScraperClass = scraperProviders[task.scraperType];
+  if (!ScraperClass) {
+    throw new Error(`Unknown scraper type: ${task.scraperType}`);
+  }
+
+  try {
+    // Log zpracování
+    await prisma.scraperTaskLog.create({
+      data: {
+        taskId,
+        level: LogLevel.INFO,
+        message: `Processing link: ${linkUrl}`,
+      },
+    });
+
+    const config =
+      typeof task.scraperConfig === 'string' ? JSON.parse(task.scraperConfig) : task.scraperConfig;
+
+    const scraper = new ScraperClass(config);
+
+    // Zpracování odkazu
+    const result = await scraper.scrape(linkUrl);
+
+    if (result) {
+      // Uložení výsledku
+      await prisma.scrapedLink.update({
+        where: { id: link.id },
+        data: {
+          status: ScrapedLinkStatus.PROCESSED,
+          processedAt: new Date(),
+          metadata: JSON.stringify(result),
+        },
+      });
+
+      // Uložení detailů o firmě
+      if (result.name) {
+        try {
+          await prisma.business.upsert({
+            where: {
+              link: linkUrl,
+            },
+            update: {
+              ...result,
+            },
+            create: {
+              name: result.name,
+              link: linkUrl,
+              ...result,
+            },
+          });
+        } catch (error) {
+          await prisma.scraperTaskLog.create({
+            data: {
+              taskId,
+              level: LogLevel.WARNING,
+              message: `Failed to save business data: ${error.message}`,
+            },
+          });
+        }
+      }
+
+      return { success: true, business: result };
+    } else {
+      await prisma.scrapedLink.update({
+        where: { id: link.id },
+        data: {
+          status: ScrapedLinkStatus.SKIPPED,
+          processedAt: new Date(),
+        },
+      });
+
+      return { success: true };
+    }
+  } catch (error) {
+    await prisma.scraperTaskLog.create({
+      data: {
+        taskId,
+        level: LogLevel.ERROR,
+        message: `Error processing link ${linkUrl}: ${error.message}`,
+      },
+    });
+
+    await prisma.scrapedLink.update({
+      where: { id: link.id },
+      data: {
+        status: ScrapedLinkStatus.FAILED,
+        processedAt: new Date(),
+        errorMessage: error.message,
+      },
+    });
+
+    return { success: false, error: error };
+  }
+}
+
+// Opakování selhavších odkazů
+export async function retryFailedLinks(taskId: string) {
+  // Nalezení selhavších odkazů
+  const failedLinks = await prisma.scrapedLink.findMany({
+    where: {
+      taskId,
+      status: ScrapedLinkStatus.FAILED,
+    },
+  });
+
+  // Aktualizace stavu odkazů
+  await prisma.scrapedLink.updateMany({
+    where: {
+      taskId,
+      status: ScrapedLinkStatus.FAILED,
+    },
+    data: {
+      status: ScrapedLinkStatus.PENDING,
+      processedAt: null,
+      errorMessage: null,
+    },
+  });
+
+  // Resetování stavu úlohy, pokud je ve failed stavu
+  const task = await prisma.scraperTask.findUnique({
+    where: { id: taskId },
+  });
+
+  if (task.status === ScraperTaskStatus.FAILED) {
+    await prisma.scraperTask.update({
+      where: { id: taskId },
+      data: {
+        status: ScraperTaskStatus.PENDING,
+        errorMessage: null,
+      },
+    });
+  }
+
+  return failedLinks.length;
+}
+
+// Získání odkazů úlohy
+export async function getTaskLinks(taskId: string, status?: ScrapedLinkStatus) {
+  const filter = status ? { where: { taskId, status } } : { where: { taskId } };
+
+  return await prisma.scrapedLink.findMany({
+    ...filter,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+// Získání logů úlohy
+export async function getTaskLogs(taskId: string, level?: LogLevel) {
+  const filter = level ? { where: { taskId, level } } : { where: { taskId } };
+
+  return await prisma.scraperTaskLog.findMany({
+    ...filter,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
 export default {
   createScraperTask,
-  runScraperTask,
-  resumeScraperTask,
-  pauseScraperTask,
-  getScraperTask,
   getScraperTasks,
+  getScraperTask,
   updateScraperTask,
+  runScraperTask,
+  pauseScraperTask,
+  resumeScraperTask,
   processLink,
   retryFailedLinks,
-  createScrapedLink,
-  updateScrapedLink,
   getTaskLinks,
-  logScraperTask,
   getTaskLogs,
-  scraperQueueService,
-  scraperProviders,
 };
