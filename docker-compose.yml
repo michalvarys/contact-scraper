@@ -35,9 +35,9 @@ services:
     environment:
       # - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
       - NODE_ENV=production
-      - PORT=3002
+      - PORT=${SERVER_PORT-3002}
     ports:
-      - "3002:3002"
+      - "${SERVER_PORT-3002}:${SERVER_PORT-3002}"
     volumes:
       - ./apps/server:/app/apps/server
       - ./packages:/app/packages
@@ -55,10 +55,10 @@ services:
     depends_on:
       - api
     environment:
-      - NEXT_PUBLIC_API_URL=http://api:3002
+      - NEXT_PUBLIC_API_URL=http://api:${SERVER_PORT-3002}
       - NODE_ENV=production
     ports:
-      - "3001:3001"
+      - "${CLIENT_PORT-3001}:3001"
     volumes:
       - ./apps/client:/app/apps/client
       - ./packages:/app/packages

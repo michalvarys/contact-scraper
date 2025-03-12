@@ -8,7 +8,7 @@ import {
   companyQueryParamsSchema,
   updateCompanySchema,
 } from './schemas';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@contact-scraper/db';
 
 export const companyRouter = router({
   // Získání seznamu firem s filtrováním a stránkováním

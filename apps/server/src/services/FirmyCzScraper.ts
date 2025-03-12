@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@contact-scraper/db';
 import { FirmyCzScraper } from '@contact-scraper/scrapers';
 
 const prisma = new PrismaClient();

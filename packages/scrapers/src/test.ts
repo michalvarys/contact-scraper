@@ -1,8 +1,15 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { prisma } from '@contact-scraper/db';
+import { prisma, ScraperTask } from '@contact-scraper/db';
 import AiGoogleMapsScraper from './AiGoogleMapsScraper';
+import { TaskQueue } from './tools/queue';
+import {
+  createScraperTask,
+  runScraperTask,
+  getScraperTasks,
+  ScraperTaskStatus,
+} from './tools/scraperQueue';
 
 async function main() {
   // const scraper = new AiGoogleMapsScraper();
@@ -17,61 +24,70 @@ async function main() {
   // );
   // console.log(info);
   // return;
-  const industries = await prisma.industry.findMany();
-  const regions = await prisma.region.findMany();
-  const pLimit = (await import('p-limit')).default; // Dynamický import
 
-  const limit = pLimit(3);
+  const scraperTasks = await getScraperTasks();
+  const pendingTasks = await getScraperTasks(ScraperTaskStatus.PENDING);
+  const failedTasks = await getScraperTasks(ScraperTaskStatus.FAILED);
+  const queue = new TaskQueue(5);
 
-  const tasks = [];
-  const sektory = [
-    // 'Služby',
-    // 'Design',
-    // 'Kadeřnictví',
-    // 'Barber',
-    // 'Software',
-    'Programátor',
-    'Tvorba webu',
-    'Digitální marketing',
-    'Poradce',
-    'Právní služby',
-    'Ruční mytí aut',
-    'Stavební firma',
-    'Natěrač a malířské služby',
-    'Fotograf',
-    'Kavárny a restaurace',
-    'Hotely a ubytování',
-    'Event management',
-    'Fitness a wellness',
-    'E-commerce',
-    'Influencer',
-    'Realitní makléř',
-    'Architekt',
-    'Zdravotnictví a estetická medicína',
-    'Autoservisy a tuning',
-    'Hudebníci a kapely',
-    'Vzdělávání',
-  ];
-  for (const industry of sektory) {
-    //) {
-    for (const region of regions) {
-      const scraper = new AiGoogleMapsScraper();
-      tasks.push(limit(() => scraper.scrapeCompanies(industry, region.name)));
+  if (!pendingTasks.length) {
+    const industries = await prisma.industry.findMany();
+    const regions = await prisma.region.findMany();
+
+    const tasks = [];
+    const sektory = [
+      // 'Služby',
+      // 'Design',
+      // 'Kadeřnictví',
+      // 'Barber',
+      // 'Software',
+      // 'Programátor',
+      // 'Tvorba webu',
+      'Digitální marketing',
+      'Poradce',
+      'Právní služby',
+      'Ruční mytí aut',
+      'Stavební firma',
+      'Natěrač a malířské služby',
+      'Fotograf',
+      'Kavárny a restaurace',
+      'Hotely a ubytování',
+      'Event management',
+      'Fitness a wellness',
+      'E-commerce',
+      'Influencer',
+      'Realitní makléř',
+      'Architekt',
+      'Zdravotnictví a estetická medicína',
+      'Autoservisy a tuning',
+      'Hudebníci a kapely',
+      'Vzdělávání',
+    ];
+
+    for (const industry of sektory) {
+      for (const region of regions) {
+        const task = await createScraperTask({
+          scraperType: 'AiGoogleMapsScraper',
+          scraperConfig: {
+            industry,
+            region: region.name,
+            headless: false, // nastavíme na true pro produkční použití
+          },
+        });
+        tasks.push(task);
+      }
     }
+    const queueEntries = tasks.map((task) => runScraperTask(task.id));
+    // @ts-ignore
+    await queue.addAll<ScraperTask>(queueEntries);
+    console.log('Všechny úlohy dokončeny');
+    return;
   }
 
-  await Promise.all(tasks); // Počká na dokončení všech úloh
-  console.log('Všechny úlohy dokončeny');
+  console.log('pending tasks ' + pendingTasks.length);
 
-  // for (const industry of industries) {
-  //   // await runGoogleMapsScraper(industry.name, 'Karlovy Vary', `${industry.name} Karlovy Vary`, {
-  //   //   headless: false,
-  //   // });
-
-  //   for (const region of regions) {
-  //     // await runGoogleMapsScraper(industry.name, region.name);
-  //   }
-  // }
+  // @ts-ignore
+  await queue.addAll<ScraperTask>(pendingTasks.map((task) => runScraperTask(task.id)));
 }
 
 main().catch(console.error);

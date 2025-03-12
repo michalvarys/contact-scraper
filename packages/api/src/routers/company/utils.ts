@@ -1,7 +1,6 @@
-import { Prisma } from '@prisma/client';
 import { companyQueryParamsSchema } from './schemas';
 import { z } from 'zod';
-import { prisma } from '@contact-scraper/db';
+import { Prisma, prisma } from '@contact-scraper/db';
 
 // Pomocná funkce pro vytvoření filtru
 export function createFilter(

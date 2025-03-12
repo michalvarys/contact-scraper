@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@contact-scraper/db';
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {

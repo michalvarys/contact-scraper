@@ -6,10 +6,9 @@ const withAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 
-process.env.NODE_ENV === 'production'
-? 'http://api:3002' 
-: 'http://localhost:3002'
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'production' ? 'http://api:3002' : 'http://localhost:3002');
 
 const nextConfig: NextConfig = {
   // Optimalizace pro statické stránky

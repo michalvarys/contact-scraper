@@ -45,6 +45,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
+    "bull": "^4.16.5",
     "p-limit": "^6.2.0"
   }
 }

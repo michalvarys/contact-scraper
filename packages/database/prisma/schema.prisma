@@ -76,3 +76,65 @@ model Region {
   name      String    @unique
   companies Company[]
 }
+
+// Modely pro scraper queue
+model ScraperTask {
+  id            String            @id @default(uuid())
+  status        ScraperTaskStatus @default(PENDING)
+  scraperType   String // Typ scraperu (např. "GoogleMapsScraper", "FirmyCzScraper")
+  scraperConfig String // JSON konfigurace scraperu (parametry pro inicializaci)
+  searchQuery   String? // Vyhledávací dotaz, pokud je použit
+  industry      String? // Průmysl/obor
+  region        String? // Region
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  startedAt     DateTime? // Kdy byl task spuštěn
+  completedAt   DateTime? // Kdy byl task dokončen
+  errorMessage  String? // Chybová hláška v případě selhání
+  scrapedLinks  ScrapedLink[] // Odkazy, které scraper nalezl a zpracoval
+  logs          ScraperTaskLog[] // Logy k tasku
+}
+
+enum ScraperTaskStatus {
+  PENDING // Čeká na zpracování
+  RUNNING // Právě běží
+  COMPLETED // Úspěšně dokončen
+  FAILED // Selhal s chybou
+  PAUSED // Pozastaven (např. manuálně)
+}
+
+model ScrapedLink {
+  id           String            @id @default(uuid())
+  link         String // URL odkazu
+  status       ScrapedLinkStatus @default(PENDING)
+  processedAt  DateTime? // Kdy byl odkaz zpracován
+  errorMessage String? // Chybová hláška v případě selhání
+  companyId    String? // ID společnosti (pokud byla uložena)
+  task         ScraperTask       @relation(fields: [taskId], references: [id])
+  taskId       String // Odkaz na task, který tento odkaz zpracovává
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+enum ScrapedLinkStatus {
+  PENDING // Čeká na zpracování
+  PROCESSED // Úspěšně zpracován
+  FAILED // Selhal s chybou
+  SKIPPED // Přeskočen (např. už existuje v databázi)
+}
+
+model ScraperTaskLog {
+  id        String      @id @default(uuid())
+  message   String // Zpráva logu
+  level     LogLevel    @default(INFO)
+  task      ScraperTask @relation(fields: [taskId], references: [id])
+  taskId    String // Odkaz na task
+  createdAt DateTime    @default(now())
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+}

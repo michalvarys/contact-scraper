@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@contact-scraper/db';
 import fs from 'fs';
 import path from 'path';
 
