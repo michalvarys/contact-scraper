@@ -1,19 +1,31 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { BaseScraper } from './BaseScraper';
-import { Business } from './types';
+import { Business, ScraperOptions } from './types';
 
 export class FirmyCzScraper extends BaseScraper {
   private searchQuery: string;
+  private taskId: string | null = null;
 
-  constructor(
-    public industry: string,
-    public region: string,
-    headless: boolean = true,
-  ) {
-    super('https://www.firmy.cz/', industry, region, { headless });
-    this.searchQuery = `${industry} ${region}`;
-    this.init();
+  constructor(options: ScraperOptions = {}) {
+    super(
+      options.baseUrl || 'https://www.firmy.cz/',
+      options.industry || '',
+      options.region || '',
+      {
+        headless: options.headless !== undefined ? options.headless : true,
+        ...options,
+      },
+    );
+    this.searchQuery = `${this.industry} ${this.region}`;
+  }
+
+  /**
+   * Nastavení ID úlohy
+   * @param taskId ID úlohy
+   */
+  setTaskId(taskId: string) {
+    this.taskId = taskId;
   }
 
   protected getScraperName(): string {
@@ -134,5 +146,92 @@ export class FirmyCzScraper extends BaseScraper {
     return $('.list.lcat ul li a')
       .map((_, el) => $(el).text().trim())
       .get();
+  }
+
+  /**
+   * Metoda pro vyhledání odkazů
+   * @param query Vyhledávací dotaz
+   * @returns Pole odkazů
+   */
+  async searchLinks(query: string): Promise<string[]> {
+    await this.initializeBrowser();
+
+    try {
+      if (!this.page) {
+        throw new Error('Page not initialized');
+      }
+
+      // Navigace na stránku s výsledky vyhledávání
+      const pageUrl = this.buildPageUrl(1, query);
+      await this.page.goto(pageUrl, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+
+      // Získání HTML obsahu stránky
+      const html = await this.page.content();
+
+      // Extrakce odkazů na firmy
+      const links = this.extractCompanyLinks(html);
+      console.log(`Nalezeno ${links.length} odkazů na firmy na první stránce`);
+
+      // Kontrola, zda existují další stránky
+      let currentPage = 1;
+      let hasNextPage = await this.checkNextPage();
+
+      // Procházení dalších stránek
+      while (hasNextPage && currentPage < 5) {
+        // Omezení na 5 stránek
+        try {
+          await this.goToNextPage();
+          currentPage++;
+
+          // Získání HTML obsahu stránky
+          const pageHtml = await this.page.content();
+
+          // Extrakce odkazů na firmy
+          const pageLinks = this.extractCompanyLinks(pageHtml);
+          console.log(`Nalezeno ${pageLinks.length} odkazů na firmy na stránce ${currentPage}`);
+
+          // Přidání odkazů do výsledku
+          links.push(...pageLinks);
+
+          // Kontrola, zda existuje další stránka
+          hasNextPage = await this.checkNextPage();
+        } catch (error) {
+          console.error(`Chyba při procházení stránky ${currentPage}:`, error);
+          break;
+        }
+      }
+
+      return links;
+    } catch (error) {
+      console.error('Chyba při vyhledávání odkazů:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Metoda pro scrapování odkazu
+   * @param link Odkaz na detail firmy
+   * @returns Data o firmě
+   */
+  async scrapeLink(link: string): Promise<Business> {
+    return this.scrapeBusinessDetails(link);
+  }
+
+  /**
+   * Metoda pro obohacení dat o firmě
+   * @param business Data o firmě
+   * @param link Odkaz na detail firmy
+   * @returns Obohacená data o firmě
+   */
+  enrichBusinessData(business: Business, link: string): Business {
+    // Přidání ID úlohy, pokud je nastaveno
+    if (this.taskId) {
+      business.taskId = this.taskId;
+      business.sourceLink = link;
+    }
+    return business;
   }
 }

@@ -156,11 +156,9 @@ class AiGoogleMapsScraperWrapper {
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
   ): Promise<any> {
-    if (logCallback) {
-      await logCallback(
-        `Spouštím AI Google Maps scraper pro průmysl: ${this.industry}, region: ${this.region}`,
-      );
-    }
+    await logCallback?.(
+      `Spouštím AI Google Maps scraper pro průmysl: ${this.industry}, region: ${this.region}`,
+    );
 
     try {
       // Pokud nemáme vlastní dotaz, složíme ho z průmyslu a regionu
@@ -171,14 +169,18 @@ class AiGoogleMapsScraperWrapper {
       }
 
       // Originální metoda pro scrapování firem
-      const result = await this.scraper.scrapeCompanies(
-        this.industry || 'general',
-        this.region || 'general',
-      );
+      const result = await this.scraper.searchLinks(query);
 
-      if (logCallback) {
-        await logCallback(`Scrapování dokončeno: ${result.message}`);
+      for (const link of result) {
+        try {
+          const business = await this.scrapeLink(link);
+          linkCallback?.(link, { success: true, business });
+        } catch (error: any) {
+          linkCallback?.(link, { success: false, error: error.message });
+        }
       }
+
+      await logCallback?.(`Scrapování dokončeno: získáno ${result.length || 0} odkazů`);
 
       return result;
     } catch (error) {
@@ -247,11 +249,12 @@ export class FirmyCzScraperProvider implements ScraperProvider {
    * @param config Konfigurace scraperu
    */
   async createScraper(config: ScraperInitParams): Promise<any> {
-    const scraper = new FirmyCzScraper(
-      config.industry || '',
-      config.region || '',
-      config.headless !== false,
-    );
+    const scraper = new FirmyCzScraper({
+      baseUrl: config.baseUrl || 'https://www.firmy.cz/',
+      industry: config.industry || '',
+      region: config.region || '',
+      headless: config.headless !== false,
+    });
 
     return new BaseScraperWrapper(scraper);
   }
@@ -266,11 +269,12 @@ export class GoogleMapsScraperProvider implements ScraperProvider {
    * @param config Konfigurace scraperu
    */
   async createScraper(config: ScraperInitParams): Promise<any> {
-    const scraper = new GoogleMapsScraper(
-      config.industry || '',
-      config.region || '',
-      config.headless !== false,
-    );
+    const scraper = new GoogleMapsScraper({
+      baseUrl: config.baseUrl || 'https://www.google.com/maps',
+      industry: config.industry || '',
+      region: config.region || '',
+      headless: config.headless !== false,
+    });
 
     return new BaseScraperWrapper(scraper);
   }

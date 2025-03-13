@@ -64,7 +64,7 @@ export class DatabaseManager {
           ...companyData,
           address: companyData.address || '',
           reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
-          id: companyData.id || null,
+          id: companyData.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
           link: companyData.link,
           name: companyData.name,
           scrapedAt: new Date(),

@@ -1,8 +1,9 @@
-import { BaseScraper, ScraperConfig } from '../BaseScraper';
+import { ScraperTaskStatus } from '@contact-scraper/db';
 import { GoogleMapsScraper } from '../GoogleMapsScraper';
 import { FirmyCzScraper } from '../FirmyCzScraper';
-import { ScraperTaskStatus } from '../types';
 import { prisma } from './mockDb';
+import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
+import { ScraperConfig } from './scraperQueue';
 
 export class ScraperQueue {
   private static instance: ScraperQueue;
@@ -18,12 +19,14 @@ export class ScraperQueue {
     return ScraperQueue.instance;
   }
 
-  private async createScraper(type: string, config: ScraperConfig): Promise<BaseScraper> {
+  private async createScraper(type: string, config: ScraperConfig) {
     switch (type) {
       case 'GoogleMapsScraper':
         return new GoogleMapsScraper(config);
       case 'FirmyCzScraper':
         return new FirmyCzScraper(config);
+      case 'AiGoogleMapScraper':
+        return new AiGoogleMapsScraper(config);
       default:
         throw new Error(`Unknown scraper type: ${type}`);
     }

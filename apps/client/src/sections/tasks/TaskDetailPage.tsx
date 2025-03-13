@@ -27,10 +27,13 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
         pauseTask,
         retryFailedLinks,
         updateConfig,
+        handleDuplicate,
+        deleteTask,
         isRunning,
         isPausing,
         isRetrying,
-        isUpdatingConfig
+        isUpdatingConfig,
+        isDeleting
     } = useTaskDetail(taskId);
 
     const {
@@ -72,9 +75,12 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
                 isRunning={isRunning}
                 isPausing={isPausing}
                 isRetrying={isRetrying}
+                isDeleting={isDeleting}
                 onRun={runTask}
                 onPause={pauseTask}
                 onRetryFailed={retryFailedLinks}
+                onDuplicate={handleDuplicate}
+                onDelete={deleteTask}
             />
 
             <TaskDetailStats task={task} links={links} />

@@ -9,3 +9,6 @@ export { FirmyCzScraper } from './FirmyCzScraper';
 
 // Example usage
 export { main as runQueueExample } from './examples/queue-example';
+
+export { ScraperQueueService } from './services/ScraperQueueService';
+export * from './providers/ScraperProviders';

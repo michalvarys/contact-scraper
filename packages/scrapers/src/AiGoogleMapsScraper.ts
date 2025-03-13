@@ -1,4 +1,4 @@
-import { Business, WebsiteAnalysisResult } from './types';
+import { Business } from './types';
 import { geminiService, websiteAnalyzer, databaseManager, BrowserManager } from './services';
 import * as cheerio from 'cheerio';
 
@@ -39,6 +39,30 @@ class AiGoogleMapsScraper {
    */
   async close() {
     await this.browserManager.close();
+  }
+
+  async searchLinks(query: string) {
+    await this.init();
+
+    try {
+      // 1. Navštívení Google Maps a vyhledání dotazu
+      await this.browserManager.navigateTo('https://www.google.com/maps');
+      await this.browserManager.confirmCookiesModal();
+
+      // Vyhledání dotazu
+      const page = this.browserManager.getPage();
+      await page.waitForSelector('#searchboxinput');
+      await page.type('#searchboxinput', query);
+      await page.keyboard.press('Enter');
+      await page.waitForNavigation({ waitUntil: 'networkidle2' });
+      await this.browserManager.delay(3000);
+
+      // 2. Scrollování a získání všech odkazů na firmy
+      const companies = await this.browserManager.scrollAndExtractLinks();
+
+      return companies.map((company) => company.link);
+    } catch (error) {}
+    return [];
   }
 
   /**

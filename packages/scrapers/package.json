@@ -10,6 +10,7 @@
     "test": "jest",
     "setup": "bash src/scripts/make-executable.sh",
     "test:scraper": "tsx src/scripts/run-test.ts",
+    "scraper:test": "tsx src/test.ts",
     "queue:example": "tsx src/scripts/run-queue-example.ts",
     "postinstall": "pnpm setup"
   },

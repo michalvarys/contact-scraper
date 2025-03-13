@@ -165,40 +165,40 @@ function VirtualTable<T>({
                         }}
                     >
                         {getTableContent()}
-                    </TableBody>
-                    <TableFooter className="sticky-footer">
-                        {footer}
-
-                        {/* Přidání paginace a výběru velikosti stránky, pokud jsou poskytnuty props */}
-                        {(currentPage !== undefined && totalPages !== undefined && onPageChange) && (
-                            <TableRow>
-                                <TableCell colSpan={table.getAllColumns().length} className="p-2">
-                                    <div className="flex flex-wrap justify-between items-center gap-4">
-                                        {/* Výběr velikosti stránky */}
-                                        {pageSize !== undefined && onPageSizeChange && (
-                                            <PageSizeSelector
-                                                pageSize={pageSize}
-                                                onPageSizeChange={onPageSizeChange}
-                                                pageSizeOptions={pageSizeOptions}
-                                            />
-                                        )}
-
-                                        {/* Paginace */}
-                                        <Pagination
-                                            currentPage={currentPage}
-                                            totalPages={totalPages}
-                                            onPageChange={onPageChange}
-                                        />
-                                    </div>
-                                </TableCell>
-                            </TableRow>
+                        {isFetchingNextPage && (
+                            <TableCell className="sticky-footer h-[50px] z-[10]" colSpan={table.getAllColumns().length}>
+                                <LoadingIndicator />
+                            </TableCell>
                         )}
-                    </TableFooter>
+                    </TableBody>
+
+
                 </Table>
 
-                {/* Indikátor načítání - mimo TableBody */}
-                {isFetchingNextPage && <LoadingIndicator />}
             </div>
+            {footer}
+            {/* Přidání paginace a výběru velikosti stránky, pokud jsou poskytnuty props */}
+            {(currentPage !== undefined && totalPages !== undefined && onPageChange) && (
+                <div className="p-2">
+                    <div className="flex flex-wrap justify-between items-center gap-4">
+                        {/* Výběr velikosti stránky */}
+                        {pageSize !== undefined && onPageSizeChange && (
+                            <PageSizeSelector
+                                pageSize={pageSize}
+                                onPageSizeChange={onPageSizeChange}
+                                pageSizeOptions={pageSizeOptions}
+                            />
+                        )}
+
+                        {/* Paginace */}
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={onPageChange}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

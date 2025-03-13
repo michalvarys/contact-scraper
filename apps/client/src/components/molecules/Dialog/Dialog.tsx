@@ -82,6 +82,7 @@ const DialogTrigger = ({ children, asChild = false }: DialogTriggerProps) => {
 
     if (asChild && React.isValidElement(children)) {
         return React.cloneElement(children, {
+            // @ts-ignore
             onClick: (e: React.MouseEvent) => {
                 handleClick();
                 (children.props as any).onClick?.(e);
@@ -101,12 +102,13 @@ export interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement>
      * Obsah dialogu
      */
     children: React.ReactNode;
+    containerClassName?: string;
 }
 
 /**
  * Obsah dialogu
  */
-const DialogContent = ({ children, className, ...props }: DialogContentProps) => {
+const DialogContent = ({ children, className, containerClassName, ...props }: DialogContentProps) => {
     const { open, setOpen } = useDialogContext();
 
     if (!open) return null;
@@ -123,7 +125,7 @@ const DialogContent = ({ children, className, ...props }: DialogContentProps) =>
             {...props}
         >
             <div
-                className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[85vh] overflow-y-auto"
+                className={cn("bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[85vh] overflow-y-auto", containerClassName)}
                 onClick={(e) => e.stopPropagation()}
             >
                 {children}

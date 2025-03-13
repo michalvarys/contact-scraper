@@ -1,4 +1,4 @@
-import { PrismaClient } from '@contact-scraper/db';
+import { LogLevel, PrismaClient, ScrapedLinkStatus, ScraperTaskStatus } from '@contact-scraper/db';
 import { FirmyCzScraper } from '../FirmyCzScraper';
 import { GoogleMapsScraper } from '../GoogleMapsScraper';
 import { AiGoogleMapsScraper } from '../AiGoogleMapsScraper';
@@ -13,29 +13,6 @@ interface QueueScraper extends BaseScraper {
 
 // Typy pro scraper providery
 type ScraperConstructor = new (config: any) => QueueScraper;
-
-// Definice typů
-export enum ScraperTaskStatus {
-  PENDING = 'PENDING',
-  RUNNING = 'RUNNING',
-  PAUSED = 'PAUSED',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-}
-
-export enum ScrapedLinkStatus {
-  PENDING = 'PENDING',
-  PROCESSED = 'PROCESSED',
-  FAILED = 'FAILED',
-  SKIPPED = 'SKIPPED',
-}
-
-export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR',
-}
 
 // Typ pro konfiguraci scraperu
 export interface ScraperConfig {

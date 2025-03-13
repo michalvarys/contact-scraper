@@ -3,14 +3,26 @@ import { Business, ScraperOptions } from './types';
 
 export class GoogleMapsScraper extends BaseScraper {
   private mapLinks: Set<string> = new Set();
+  private taskId: string | null = null;
 
-  constructor(
-    public industry: string = '',
-    public region: string = '',
-    headless: boolean = true,
-  ) {
-    super('https://www.google.com/maps', industry, region, { headless });
-    this.init();
+  constructor(options: ScraperOptions = {}) {
+    super(
+      options.baseUrl || 'https://www.google.com/maps',
+      options.industry || '',
+      options.region || '',
+      {
+        headless: options.headless !== undefined ? options.headless : true,
+        ...options,
+      },
+    );
+  }
+
+  /**
+   * Nastavení ID úlohy
+   * @param taskId ID úlohy
+   */
+  setTaskId(taskId: string) {
+    this.taskId = taskId;
   }
 
   protected getScraperName(): string {
@@ -222,6 +234,61 @@ export class GoogleMapsScraper extends BaseScraper {
     }
   }
 
+  /**
+   * Metoda pro vyhledání odkazů
+   * @param query Vyhledávací dotaz
+   * @returns Pole odkazů
+   */
+  async searchLinks(query: string): Promise<string[]> {
+    await this.initializeBrowser();
+
+    try {
+      if (!this.page) {
+        throw new Error('Page not initialized');
+      }
+
+      // Navigate to Google Maps
+      await this.page.goto(this.baseUrl);
+
+      // Wait for search input field
+      await this.page.waitForSelector('#searchboxinput');
+
+      // Enter search query
+      await this.page.type('#searchboxinput', query);
+      await this.page.keyboard.press('Enter');
+
+      // Wait for results to load
+      await this.page.waitForSelector('[role="main"]', { timeout: 15000 });
+
+      // Scroll for more results
+      await this.autoScroll(800, 20);
+
+      // Collect all Google Maps links
+      const mapLinks = await this.collectMapLinks();
+      console.log(`Found ${mapLinks.length} business links to scrape`);
+
+      return mapLinks;
+    } catch (error) {
+      console.error('Error during Google Maps search:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Metoda pro obohacení dat o firmě
+   * @param business Data o firmě
+   * @param link Odkaz na detail firmy
+   * @returns Obohacená data o firmě
+   */
+  enrichBusinessData(business: Business, link: string): Business {
+    // Přidání ID úlohy, pokud je nastaveno
+    if (this.taskId) {
+      business.taskId = this.taskId;
+      business.sourceLink = link;
+    }
+    return business;
+  }
+
   // Override the main scrape method for Google Maps' specific behavior
   async scrape(searchQuery?: string): Promise<Business[]> {
     const results: Business[] = [];
@@ -407,7 +474,7 @@ export async function runGoogleMapsScraper(
   query?: string,
   opt?: ScraperOptions,
 ): Promise<Business[]> {
-  const scraper = new GoogleMapsScraper(industry, region, opt?.headless);
+  const scraper = new GoogleMapsScraper({ industry, region, headless: opt?.headless });
   return await scraper.scrape(query);
 }
 

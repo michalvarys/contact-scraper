@@ -8,7 +8,7 @@ export { ScraperTaskStatus, ScrapedLinkStatus };
 
 export const scraperRouter = router({
   getScraperTypes: publicProcedure.query(async () => {
-    return ['GoogleMapsScraper', 'FirmyCzScraper'];
+    return ['GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper'];
   }),
 
   createTask: publicProcedure
@@ -206,6 +206,92 @@ export const scraperRouter = router({
             typeof input.config === 'string' ? input.config : JSON.stringify(input.config),
         },
       });
+    }),
+
+  duplicateTask: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const task = await prisma.scraperTask.findFirst({
+        where: {
+          id: input.taskId,
+        },
+      });
+      if (!task) return null;
+
+      return prisma.scraperTask.create({
+        data: {
+          scraperType: task.scraperType,
+          scraperConfig: task.scraperConfig,
+          status: ScraperTaskStatus.PAUSED,
+          industry: task.industry,
+          region: task.region,
+          searchQuery: task.searchQuery,
+        },
+      });
+    }),
+
+  deleteTask: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      // Nejprve smažeme všechny odkazy a logy spojené s úlohou
+      await prisma.scrapedLink.deleteMany({
+        where: { taskId: input.taskId },
+      });
+
+      await prisma.scraperTaskLog.deleteMany({
+        where: { taskId: input.taskId },
+      });
+
+      // Nakonec smažeme samotnou úlohu
+      return prisma.scraperTask.delete({
+        where: { id: input.taskId },
+      });
+    }),
+
+  getLinkData: publicProcedure
+    .input(
+      z.object({
+        linkId: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      // Najdeme odkaz
+      const link = await prisma.scrapedLink.findUnique({
+        where: { id: input.linkId },
+      });
+
+      if (!link) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Link not found',
+        });
+      }
+
+      // Pokud má odkaz přiřazenou společnost, získáme její data
+      if (link.companyId) {
+        const company = await prisma.company.findUnique({
+          where: { id: link.companyId },
+          include: {
+            metadata: true,
+            categories: true,
+            industry: true,
+            region: true,
+          },
+        });
+
+        return { link, company };
+      }
+
+      // Pokud nemá přiřazenou společnost, vrátíme jen odkaz
+      return { link, company: null };
     }),
 
   addLink: publicProcedure

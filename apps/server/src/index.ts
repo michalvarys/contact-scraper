@@ -7,11 +7,18 @@ import { prisma } from '@contact-scraper/db';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '@contact-scraper/api/routers';
 import { openApiDocument } from '@contact-scraper/api/openapi';
+import { ScraperQueueService, scraperProviders } from '@contact-scraper/scrapers';
+
 dotenv.config();
 
 const app: Express = express();
 const router: Router = express.Router();
 const PORT = process.env.PORT || 3002;
+
+const queueService = new ScraperQueueService(3);
+queueService.registerScraperProvider('AiGoogleMapsScraper', scraperProviders.AiGoogleMapsScraper);
+queueService.registerScraperProvider('FirmyCzScraper', scraperProviders.FirmyCzScraper);
+queueService.registerScraperProvider('GoogleMapsScraper', scraperProviders.GoogleMapsScraper);
 
 // Health check endpoint pro Docker
 app.get('/health', (_req, res) => {
@@ -868,6 +875,214 @@ router.post('/scrape', startScraping);
 router.post('/fix-links', fixScraperLinks);
 router.post('/clean', cleanDatabase);
 
+// Queue routes
+router.post('/queue/tasks', async (req: Request, res: Response) => {
+    try {
+        const { scraperType, scraperConfig, searchQuery, industry, region } = req.body;
+
+        if (!scraperType || !scraperConfig) {
+            res.status(400).json({
+                success: false,
+                message: 'Typ scraperu a konfigurace jsou povinné',
+            });
+            return;
+        }
+
+        const task = await queueService.createTask({
+            scraperType,
+            scraperConfig,
+            searchQuery,
+            industry,
+            region,
+        });
+
+        res.status(201).json({
+            success: true,
+            data: task,
+            message: 'Úloha byla úspěšně vytvořena',
+        });
+    } catch (error) {
+        console.error('Chyba při vytváření úlohy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při vytváření úlohy',
+        });
+    }
+});
+
+router.get('/queue/tasks', async (req: Request, res: Response) => {
+    try {
+        const { status } = req.query;
+        const tasks = await queueService.getTasks(status as any);
+
+        res.json({
+            success: true,
+            data: tasks,
+        });
+    } catch (error) {
+        console.error('Chyba při získávání úloh:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při získávání úloh',
+        });
+    }
+});
+
+router.get('/queue/tasks/:id', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+        const task = await queueService.getTask(id);
+
+        if (!task) {
+            res.status(404).json({
+                success: false,
+                message: 'Úloha nebyla nalezena',
+            });
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: task,
+        });
+    } catch (error) {
+        console.error('Chyba při získávání úlohy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při získávání úlohy',
+        });
+    }
+});
+
+router.post('/queue/tasks/:id/run', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Spustíme úlohu asynchronně, aby neblokovala odpověď
+        res.json({
+            success: true,
+            message: `Úloha ${id} byla spuštěna`,
+        });
+
+        // Spuštění úlohy asynchronně
+        queueService.runTask(id).catch((error) => {
+            console.error(`Chyba při spouštění úlohy ${id}:`, error);
+        });
+    } catch (error) {
+        console.error('Chyba při spouštění úlohy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při spouštění úlohy',
+        });
+    }
+});
+
+router.post('/queue/tasks/:id/pause', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+        const task = await queueService.pauseTask(id);
+
+        res.json({
+            success: true,
+            data: task,
+            message: `Úloha ${id} byla pozastavena`,
+        });
+    } catch (error) {
+        console.error('Chyba při pozastavení úlohy:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při pozastavení úlohy',
+        });
+    }
+});
+
+router.post('/queue/tasks/:id/resume', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Pokračování v úloze asynchronně, aby neblokovala odpověď
+        res.json({
+            success: true,
+            message: `Pokračování v úloze ${id} bylo spuštěno`,
+        });
+
+        // Pokračování v úloze asynchronně
+        queueService.resumeTask(id).catch((error) => {
+            console.error(`Chyba při pokračování v úloze ${id}:`, error);
+        });
+    } catch (error) {
+        console.error('Chyba při pokračování v úloze:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při pokračování v úloze',
+        });
+    }
+});
+
+router.post(
+    '/queue/tasks/:id/retry-failed',
+    async (req: Request<{ id: string }>, res: Response) => {
+        try {
+            const { id } = req.params;
+
+            // Opakování selhavších odkazů asynchronně, aby neblokovala odpověď
+            res.json({
+                success: true,
+                message: `Opakování selhavších odkazů pro úlohu ${id} bylo spuštěno`,
+            });
+
+            // Opakování selhavších odkazů asynchronně
+            queueService.retryFailedLinks(id).catch((error) => {
+                console.error(`Chyba při opakování selhavších odkazů pro úlohu ${id}:`, error);
+            });
+        } catch (error) {
+            console.error('Chyba při opakování selhavších odkazů:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Interní chyba serveru při opakování selhavších odkazů',
+            });
+        }
+    },
+);
+
+router.get('/queue/tasks/:id/links', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.query;
+        const links = await queueService.getLinks(id, status as any);
+
+        res.json({
+            success: true,
+            data: links,
+        });
+    } catch (error) {
+        console.error('Chyba při získávání odkazů:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při získávání odkazů',
+        });
+    }
+});
+
+router.get('/queue/tasks/:id/logs', async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { level } = req.query;
+        const logs = await queueService.getLogs(id, level as any);
+
+        res.json({
+            success: true,
+            data: logs,
+        });
+    } catch (error) {
+        console.error('Chyba při získávání logů:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Interní chyba serveru při získávání logů',
+        });
+    }
+});
+
 // Přidání routeru s prefixem /api
 app.use('/api', router);
 
@@ -887,6 +1102,15 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 // Spuštění serveru
 app.listen(PORT, () => {
     console.log(`Server běží na portu ${PORT}`);
+    // Spuštění fronty úloh
+    (async () => {
+        try {
+            await queueService.startQueue();
+            console.log('Fronta úloh scraperů byla spuštěna');
+        } catch (error) {
+            console.error('Chyba při spouštění fronty úloh:', error);
+        }
+    })();
 });
 
 // Správné ukončení Prisma klienta při ukončení aplikace

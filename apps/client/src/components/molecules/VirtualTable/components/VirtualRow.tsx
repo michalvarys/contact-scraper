@@ -27,6 +27,7 @@ const VirtualRow = memo(({
         className={cn(
             row.getIsSelected() && 'bg-blue-50',
             isActive && 'bg-gray-50',
+            'overflow-hidden',
             'h-12' // Fixní výška řádku
         )}
         style={{

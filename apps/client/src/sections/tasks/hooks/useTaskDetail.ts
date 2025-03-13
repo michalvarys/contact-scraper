@@ -1,9 +1,11 @@
 import { trpc } from '@/trpc/trpc';
 import { useToast } from '@/hooks/ui/useToast';
 import { ScraperTaskStatus } from '@/types/scraper';
+import { useRouter } from 'next/navigation';
 
 export const useTaskDetail = (taskId: string) => {
   const { toast } = useToast();
+  const { push } = useRouter();
 
   // Získání dat o úloze
   const {
@@ -151,6 +153,62 @@ export const useTaskDetail = (taskId: string) => {
     });
   };
 
+  const duplicateTaskMutation = trpc.scraper.duplicateTask.useMutation({
+    onSuccess: (record) => {
+      if (!record) {
+        toast({
+          title: 'Žádná úloha',
+          description: 'Úlohu se nepodařilo duplikovat.',
+          variant: 'warning',
+          duration: 5000,
+        });
+        return;
+      }
+
+      toast({
+        title: 'Duplikace úlohy',
+        description: 'Úloha byla úspěšně duplikována.',
+        variant: 'success',
+        duration: 5000,
+      });
+      refetch();
+      push(`/scraper-queue/${record?.id}`);
+    },
+  });
+
+  const handleDuplicate = () => {
+    if (!task) return;
+    duplicateTaskMutation.mutate({ taskId: task.id });
+  };
+
+  // Mutace pro smazání úlohy
+  const deleteTaskMutation = trpc.scraper.deleteTask.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Úloha smazána',
+        description: 'Úloha byla úspěšně smazána.',
+        variant: 'success',
+        duration: 5000,
+      });
+      // Přesměrování na seznam úloh
+      push('/scraper-queue');
+    },
+    onError: (error) => {
+      toast({
+        title: 'Chyba při mazání úlohy',
+        description: error.message || 'Nastala neočekávaná chyba při mazání úlohy.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    },
+  });
+
+  // Funkce pro smazání úlohy
+  const deleteTask = () => {
+    if (!task) return;
+    deleteTaskMutation.mutate({ taskId: task.id });
+  };
+
   return {
     task,
     isLoading,
@@ -163,5 +221,8 @@ export const useTaskDetail = (taskId: string) => {
     isPausing: pauseTaskMutation.isLoading,
     isRetrying: retryFailedLinksMutation.isLoading,
     isUpdatingConfig: updateConfigMutation.isLoading,
+    handleDuplicate,
+    deleteTask,
+    isDeleting: deleteTaskMutation.isLoading,
   };
 };

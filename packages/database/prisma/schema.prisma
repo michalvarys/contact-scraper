@@ -20,7 +20,7 @@ model User {
 }
 
 model Company {
-  id           String           @id
+  id           String           @id @default(uuid())
   name         String
   address      String
   email        String?
@@ -102,6 +102,7 @@ enum ScraperTaskStatus {
   FAILED // Selhal s chybou
   PROCESSED
   PAUSED // Pozastaven (např. manuálně)
+  INTERRUPTED // Přerušen nečekaným ukončením serveru
 }
 
 model ScrapedLink {

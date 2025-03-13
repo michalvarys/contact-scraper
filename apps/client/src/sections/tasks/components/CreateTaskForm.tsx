@@ -155,21 +155,28 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
                 <FormMessage>{form.formState.errors.searchQuery?.message}</FormMessage>
             </FormItem>
 
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                    <Checkbox
-                        disabled={createTaskMutation.isLoading}
-                        {...register('headless')}
-                    />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                    <FormLabel>Headless mód</FormLabel>
-                    <FormDescription>
-                        Povolit headless mód (bez zobrazení prohlížeče) pro rychlejší scrapování.
-                    </FormDescription>
-                </div>
-            </FormItem>
-
+            <Controller control={form.control} name="headless" render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                        <Checkbox
+                            {...field}
+                            ref={field.ref}
+                            name={field.name}
+                            value={field.value.toString()}
+                            disabled={createTaskMutation.isLoading}
+                            checked={field.value}
+                            onCheckedChange={(value) => field.onChange(value)}
+                        // {...register('headless')}
+                        />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                        <FormLabel>Headless mód</FormLabel>
+                        <FormDescription>
+                            Povolit headless mód (bez zobrazení prohlížeče) pro rychlejší scrapování.
+                        </FormDescription>
+                    </div>
+                </FormItem>
+            )} />
             <Button
                 type="submit"
                 disabled={createTaskMutation.isLoading}

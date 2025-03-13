@@ -1,5 +1,4 @@
 import { prisma } from '@contact-scraper/db';
-import { TaskQueue } from '../tools/queue';
 import {
   ScraperTaskStatus,
   ScrapedLinkStatus,
@@ -24,12 +23,203 @@ import { Business } from '../types';
  * Služba pro správu fronty úloh scraperů
  */
 export class ScraperQueueService {
-  private queue: TaskQueue;
   private scraperProviders: Map<string, ScraperProvider>;
+  private maxConcurrentTasks: number;
+  private runningTasks: Set<string>;
+  private isProcessing: boolean;
+  private queueInterval: NodeJS.Timeout | null;
+  private queueIntervalMs: number;
 
-  constructor(concurrency = 1) {
-    this.queue = new TaskQueue(concurrency);
+  constructor(concurrency = 1, queueIntervalMs = 5000) {
+    this.maxConcurrentTasks = concurrency;
     this.scraperProviders = new Map<string, ScraperProvider>();
+    this.runningTasks = new Set<string>();
+    this.isProcessing = false;
+    this.queueInterval = null;
+    this.queueIntervalMs = queueIntervalMs;
+  }
+
+  /**
+   * Nastaví maximální počet souběžných úloh
+   * @param concurrency Maximální počet souběžných úloh
+   */
+  setMaxConcurrentTasks(concurrency: number): void {
+    if (concurrency < 1) {
+      throw new Error('Maximální počet souběžných úloh musí být alespoň 1');
+    }
+    this.maxConcurrentTasks = concurrency;
+    console.log(`Maximální počet souběžných úloh nastaven na ${concurrency}`);
+  }
+
+  /**
+   * Vrátí aktuální maximální počet souběžných úloh
+   * @returns Maximální počet souběžných úloh
+   */
+  getMaxConcurrentTasks(): number {
+    return this.maxConcurrentTasks;
+  }
+
+  /**
+   * Vrátí aktuální počet běžících úloh
+   * @returns Počet běžících úloh
+   */
+  getRunningTasksCount(): number {
+    return this.runningTasks.size;
+  }
+
+  /**
+   * Spustí frontu úloh
+   */
+  async startQueue(): Promise<void> {
+    if (this.queueInterval) {
+      clearInterval(this.queueInterval);
+    }
+
+    // Označení přerušených úloh
+    await this.markInterruptedTasks();
+
+    // Automatické pokračování v přerušených úlohách
+    await this.resumeInterruptedTasks();
+
+    this.queueInterval = setInterval(() => {
+      this.processQueue();
+    }, this.queueIntervalMs);
+
+    console.log(`Fronta úloh spuštěna s intervalem ${this.queueIntervalMs}ms`);
+  }
+
+  /**
+   * Označí úlohy ve stavu RUNNING jako INTERRUPTED
+   * Tato metoda by měla být volána při startu serveru
+   */
+  private async markInterruptedTasks(): Promise<void> {
+    try {
+      // Získání úloh ve stavu RUNNING
+      const runningTasks = await prisma.$transaction(async (prisma) => {
+        return await prisma.scraperTask.findMany({
+          where: {
+            status: ScraperTaskStatus.RUNNING,
+          },
+        });
+      });
+
+      if (runningTasks.length === 0) {
+        console.log('Žádné přerušené úlohy nebyly nalezeny');
+        return;
+      }
+
+      console.log(`Nalezeno ${runningTasks.length} přerušených úloh`);
+
+      // Označení úloh jako INTERRUPTED
+      for (const task of runningTasks) {
+        await prisma.$transaction(async (prisma) => {
+          await prisma.scraperTask.update({
+            where: { id: task.id },
+            data: {
+              status: 'INTERRUPTED',
+              updatedAt: new Date(),
+            },
+          });
+
+          // Přidání logu o přerušení
+          await prisma.scraperTaskLog.create({
+            data: {
+              message: 'Úloha byla přerušena nečekaným ukončením serveru',
+              level: LogLevel.WARNING,
+              taskId: task.id,
+            },
+          });
+        });
+
+        console.log(`Úloha ${task.id} byla označena jako INTERRUPTED`);
+      }
+    } catch (error) {
+      console.error('Chyba při označování přerušených úloh:', error);
+    }
+  }
+
+  /**
+   * Automaticky pokračuje v přerušených úlohách
+   */
+  private async resumeInterruptedTasks(): Promise<void> {
+    try {
+      // Získání úloh ve stavu INTERRUPTED
+      const interruptedTasks = await prisma.$transaction(async (prisma) => {
+        return await prisma.scraperTask.findMany({
+          where: {
+            status: 'INTERRUPTED',
+          },
+        });
+      });
+
+      if (interruptedTasks.length === 0) {
+        console.log('Žádné přerušené úlohy ke zpracování');
+        return;
+      }
+
+      console.log(`Pokračování v ${interruptedTasks.length} přerušených úlohách`);
+
+      // Pokračování v úlohách
+      for (const task of interruptedTasks) {
+        // Spuštění úlohy asynchronně
+        this.resumeTask(task.id).catch((error) => {
+          console.error(`Chyba při pokračování v úloze ${task.id}:`, error);
+        });
+      }
+    } catch (error) {
+      console.error('Chyba při pokračování v přerušených úlohách:', error);
+    }
+  }
+
+  /**
+   * Zastaví frontu úloh
+   */
+  stopQueue(): void {
+    if (this.queueInterval) {
+      clearInterval(this.queueInterval);
+      this.queueInterval = null;
+      console.log('Fronta úloh zastavena');
+    }
+  }
+
+  /**
+   * Zpracuje frontu úloh
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessing || this.runningTasks.size >= this.maxConcurrentTasks) {
+      return;
+    }
+
+    this.isProcessing = true;
+
+    try {
+      // Získání úloh ve stavu PENDING
+      const pendingTasks = await prisma.scraperTask.findMany({
+        where: {
+          status: ScraperTaskStatus.PENDING,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        take: this.maxConcurrentTasks - this.runningTasks.size,
+      });
+
+      // Spuštění úloh
+      for (const task of pendingTasks) {
+        if (this.runningTasks.size < this.maxConcurrentTasks) {
+          this.runningTasks.add(task.id);
+          // Spuštění úlohy asynchronně
+          this.runTask(task.id).catch((error) => {
+            console.error(`Chyba při zpracování úlohy ${task.id}:`, error);
+            this.runningTasks.delete(task.id);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Chyba při zpracování fronty úloh:', error);
+    } finally {
+      this.isProcessing = false;
+    }
   }
 
   /**
@@ -461,6 +651,9 @@ export class ScraperQueueService {
       });
 
       throw error;
+    } finally {
+      // Odstranění úlohy ze seznamu běžících úloh
+      this.runningTasks.delete(taskId);
     }
   }
 
@@ -623,6 +816,41 @@ export class ScraperQueueService {
   }
 
   /**
+   * Pozastaví běžící úlohu
+   * @param taskId ID úlohy
+   * @returns Aktualizovaná úloha
+   */
+  async pauseTask(taskId: string): Promise<ScraperTask> {
+    // Získání úlohy
+    const task = await this.getTask(taskId);
+    if (!task) {
+      throw new Error(`Úloha ${taskId} nebyla nalezena`);
+    }
+
+    // Kontrola, zda je úloha ve stavu RUNNING
+    if (task.status !== ScraperTaskStatus.RUNNING) {
+      throw new Error(`Úlohu ${taskId} nelze pozastavit, protože není ve stavu RUNNING`);
+    }
+
+    // Aktualizace stavu úlohy
+    await this.updateTask(taskId, {
+      status: ScraperTaskStatus.PAUSED,
+    });
+
+    // Odstranění úlohy ze seznamu běžících úloh
+    this.runningTasks.delete(taskId);
+
+    // Logování pozastavení
+    await this.log({
+      message: `Úloha pozastavena`,
+      taskId,
+      level: LogLevel.INFO,
+    });
+
+    return (await this.getTask(taskId)) as ScraperTask;
+  }
+
+  /**
    * Pokračuje v přerušené úloze
    * @param taskId ID úlohy
    * @returns Aktualizovaná úloha
@@ -634,15 +862,24 @@ export class ScraperQueueService {
       throw new Error(`Úloha ${taskId} nebyla nalezena`);
     }
 
-    // Kontrola, zda je úloha ve stavu FAILED nebo PAUSED
-    if (task.status !== ScraperTaskStatus.FAILED && task.status !== ScraperTaskStatus.PAUSED) {
-      throw new Error(`Úlohu ${taskId} nelze pokračovat, protože není ve stavu FAILED nebo PAUSED`);
+    // Kontrola, zda je úloha ve stavu FAILED, PAUSED nebo INTERRUPTED
+    if (
+      task.status !== ScraperTaskStatus.FAILED &&
+      task.status !== ScraperTaskStatus.PAUSED &&
+      task.status !== 'INTERRUPTED'
+    ) {
+      throw new Error(
+        `Úlohu ${taskId} nelze pokračovat, protože není ve stavu FAILED, PAUSED nebo INTERRUPTED`,
+      );
     }
 
     // Aktualizace stavu úlohy
     await this.updateTask(taskId, {
       status: ScraperTaskStatus.RUNNING,
     });
+
+    // Přidání úlohy do seznamu běžících úloh
+    this.runningTasks.add(taskId);
 
     // Logování pokračování
     await this.log({
@@ -703,40 +940,43 @@ export class ScraperQueueService {
 
         if (existingLink) {
           // Aktualizace stavu existujícího odkazu
-          if (result.success) {
-            await this.updateLink(existingLink.id, {
-              status: ScrapedLinkStatus.PROCESSED,
-              processedAt: new Date(),
-              companyId: result.business?.id,
-            });
-          } else {
+          if (!result.success) {
             await this.updateLink(existingLink.id, {
               status: ScrapedLinkStatus.FAILED,
               errorMessage:
                 result.error instanceof Error ? result.error.message : String(result.error),
             });
+            return;
           }
-        } else {
-          // Vytvoření nového odkazu
-          const linkRecord = await this.createLink({
-            link,
-            taskId,
-            status: result.success ? ScrapedLinkStatus.PROCESSED : ScrapedLinkStatus.FAILED,
-          });
 
-          // Aktualizace stavu odkazu
-          if (result.success) {
-            await this.updateLink(linkRecord.id, {
-              processedAt: new Date(),
-              companyId: result.business?.id,
-            });
-          } else {
-            await this.updateLink(linkRecord.id, {
-              errorMessage:
-                result.error instanceof Error ? result.error.message : String(result.error),
-            });
-          }
+          await this.updateLink(existingLink.id, {
+            status: ScrapedLinkStatus.PROCESSED,
+            processedAt: new Date(),
+            companyId: result.business?.id,
+          });
+          return;
         }
+
+        // Vytvoření nového odkazu
+        const linkRecord = await this.createLink({
+          link,
+          taskId,
+          status: result.success ? ScrapedLinkStatus.PROCESSED : ScrapedLinkStatus.FAILED,
+        });
+
+        // Aktualizace stavu odkazu
+        if (!result.success) {
+          await this.updateLink(linkRecord.id, {
+            errorMessage:
+              result.error instanceof Error ? result.error.message : String(result.error),
+          });
+          return;
+        }
+
+        await this.updateLink(linkRecord.id, {
+          processedAt: new Date(),
+          companyId: result.business?.id,
+        });
       };
 
       // Pokračování ve zpracování nezpracovaných odkazů
@@ -758,7 +998,7 @@ export class ScraperQueueService {
       // Spuštění scraperu pro případné dokončení
       if (task.searchQuery) {
         // Pokud je definován vyhledávací dotaz, použijeme jej
-        await scraper.continueTask(task.searchQuery, linkCallback, logCallback);
+        await scraper.continueTask?.(task.searchQuery, linkCallback, logCallback);
       } else {
         // Jinak spustíme scraper bez vyhledávacího dotazu
         await scraper.continueTask(undefined, linkCallback, logCallback);
@@ -794,38 +1034,6 @@ export class ScraperQueueService {
 
       throw error;
     }
-  }
-
-  /**
-   * Pozastavení běžící úlohy
-   * @param taskId ID úlohy
-   * @returns Aktualizovaná úloha
-   */
-  async pauseTask(taskId: string): Promise<ScraperTask> {
-    // Získání úlohy
-    const task = await this.getTask(taskId);
-    if (!task) {
-      throw new Error(`Úloha ${taskId} nebyla nalezena`);
-    }
-
-    // Kontrola, zda je úloha ve stavu RUNNING
-    if (task.status !== ScraperTaskStatus.RUNNING) {
-      throw new Error(`Úlohu ${taskId} nelze pozastavit, protože není ve stavu RUNNING`);
-    }
-
-    // Aktualizace stavu úlohy
-    await this.updateTask(taskId, {
-      status: ScraperTaskStatus.PAUSED,
-    });
-
-    // Logování pozastavení
-    await this.log({
-      message: `Úloha pozastavena`,
-      taskId,
-      level: LogLevel.INFO,
-    });
-
-    return (await this.getTask(taskId)) as ScraperTask;
   }
 }
 

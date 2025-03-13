@@ -28,7 +28,7 @@ export abstract class BaseScraper {
   protected abstract getScraperName(): string;
 
   // Initialize database connections
-  protected async init() {
+  public async init() {
     if (this.industry && this.region) {
       // Find or create industry
       let industry = await prisma.industry.findUnique({
@@ -79,7 +79,7 @@ export abstract class BaseScraper {
   async initializeBrowser() {
     if (!this.browser) {
       this.browser = await puppeteer.launch({
-        headless: this.headless,
+        headless: this.headless ? 'new' : false,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -105,7 +105,7 @@ export abstract class BaseScraper {
   }
 
   // Close browser
-  async closeBrowser() {
+  protected async closeBrowser() {
     if (this.page) {
       await this.saveCookies();
       await this.page.close();
@@ -115,6 +115,11 @@ export abstract class BaseScraper {
       await this.browser.close();
       this.browser = null;
     }
+  }
+
+  // Public method to close browser
+  public async close() {
+    await this.closeBrowser();
   }
 
   // Load existing businesses from database
@@ -156,7 +161,7 @@ export abstract class BaseScraper {
             reviewsCount: company.reviewsCount,
             categories: company.categories.map((cat) => cat.name),
             link: company.link,
-            scrapedAt: company.scrapedAt.toISOString(),
+            scrapedAt: company.scrapedAt,
           };
         });
 
@@ -208,7 +213,7 @@ export abstract class BaseScraper {
         website: business.website,
         link: business.link,
         reviewsCount: business.reviewsCount,
-        scrapedAt: new Date(business.scrapedAt),
+        scrapedAt: new Date(),
         categories: {
           connect: categoryConnections,
         },
@@ -408,7 +413,7 @@ export abstract class BaseScraper {
           phone: business.phone,
           website: business.website,
           reviewsCount: business.reviewsCount,
-          scrapedAt: new Date(business.scrapedAt),
+          scrapedAt: new Date(),
           categories: {
             connect: categoryConnections,
           },

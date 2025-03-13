@@ -1,6 +1,7 @@
 import { ScraperQueue } from '../tools/queue';
-import { ScraperTaskStatus, ScrapedLink, ScraperLog, Business } from '../types';
+import { ScraperLog, Business } from '../types';
 import { prisma } from '../tools/mockDb';
+import { ScrapedLink, ScraperTaskStatus } from '@contact-scraper/db';
 
 export async function main() {
   // Získání instance fronty

@@ -1,80 +1,40 @@
+import {
+  ScraperTask as PrismaScraperTask,
+  ScrapedLink as PrismaScrapedLink,
+  ScraperTaskLog as PrismaScraperTaskLog,
+  ScraperTaskStatus,
+  ScrapedLinkStatus,
+  LogLevel,
+  Prisma,
+} from '@contact-scraper/db';
 import { Business } from '../types';
 
-/**
- * Enum definující stavy úlohy scraperu
- */
-export enum ScraperTaskStatus {
-  PENDING = 'PENDING',
-  RUNNING = 'RUNNING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-  PAUSED = 'PAUSED',
-}
+// Exportujeme typy z Prisma
+export { ScraperTaskStatus, ScrapedLinkStatus, LogLevel };
 
-/**
- * Enum definující stavy zpracování odkazu
- */
-export enum ScrapedLinkStatus {
-  PENDING = 'PENDING',
-  PROCESSED = 'PROCESSED',
-  FAILED = 'FAILED',
-  SKIPPED = 'SKIPPED',
-}
-
-/**
- * Enum definující úrovně logu
- */
-export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR',
-}
-
-/**
- * Rozhraní definující základní parametry scraperu
- */
-export interface ScraperInitParams {
-  baseUrl?: string;
-  industry?: string;
-  region?: string;
-  headless?: boolean;
-  [key: string]: any; // Další volitelné parametry specifické pro jednotlivé scrapery
-}
-
-/**
- * Rozhraní reprezentující úlohu scraperu
- */
-export interface ScraperTask {
-  id: string;
-  status: ScraperTaskStatus;
-  scraperType: string;
-  scraperConfig: string | ScraperInitParams;
-  searchQuery?: string;
-  industry?: string;
-  region?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  startedAt?: Date;
-  completedAt?: Date;
-  errorMessage?: string;
+// Rozšíření typů z Prisma
+export type ScraperTask = PrismaScraperTask & {
   scrapedLinks: ScrapedLink[];
   logs: ScraperTaskLog[];
-}
+};
+
+export type ScrapedLink = PrismaScrapedLink;
+
+export type ScraperTaskLog = PrismaScraperTaskLog;
 
 /**
- * Rozhraní pro vytvoření nové úlohy scraperu
+ * Parametry pro vytvoření úlohy
  */
 export interface CreateScraperTaskParams {
   scraperType: string;
-  scraperConfig: ScraperInitParams;
+  scraperConfig: string | Record<string, any>;
   searchQuery?: string;
   industry?: string;
   region?: string;
 }
 
 /**
- * Rozhraní pro aktualizaci stavu úlohy scraperu
+ * Parametry pro aktualizaci úlohy
  */
 export interface UpdateScraperTaskParams {
   status?: ScraperTaskStatus;
@@ -84,22 +44,7 @@ export interface UpdateScraperTaskParams {
 }
 
 /**
- * Rozhraní definující odkaz ke zpracování
- */
-export interface ScrapedLink {
-  id: string;
-  link: string;
-  status: ScrapedLinkStatus;
-  processedAt?: Date;
-  errorMessage?: string;
-  companyId?: string;
-  taskId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Rozhraní pro vytvoření nového odkazu
+ * Parametry pro vytvoření odkazu
  */
 export interface CreateScrapedLinkParams {
   link: string;
@@ -108,7 +53,7 @@ export interface CreateScrapedLinkParams {
 }
 
 /**
- * Rozhraní pro aktualizaci stavu odkazu
+ * Parametry pro aktualizaci odkazu
  */
 export interface UpdateScrapedLinkParams {
   status?: ScrapedLinkStatus;
@@ -118,27 +63,16 @@ export interface UpdateScrapedLinkParams {
 }
 
 /**
- * Rozhraní definující log úlohy scraperu
- */
-export interface ScraperTaskLog {
-  id: string;
-  message: string;
-  level: LogLevel;
-  taskId: string;
-  createdAt: Date;
-}
-
-/**
- * Rozhraní pro vytvoření nového logu
+ * Parametry pro vytvoření logu
  */
 export interface CreateScraperTaskLogParams {
   message: string;
-  level?: LogLevel;
   taskId: string;
+  level?: LogLevel;
 }
 
 /**
- * Rozhraní definující výsledek zpracování odkazu
+ * Výsledek zpracování odkazu
  */
 export interface ProcessLinkResult {
   success: boolean;
@@ -147,22 +81,27 @@ export interface ProcessLinkResult {
 }
 
 /**
- * Rozhraní pro callback po dokončení zpracování odkazu
+ * Callback pro zpracování odkazu
  */
-export interface LinkProcessCallback {
-  (link: string, result: ProcessLinkResult): Promise<void>;
+export type LinkProcessCallback = (link: string, result: ProcessLinkResult) => Promise<void>;
+
+/**
+ * Callback pro logování
+ */
+export type LogCallback = (message: string, level?: LogLevel) => Promise<void>;
+
+/**
+ * Parametry pro inicializaci scraperu
+ */
+export interface ScraperInitParams {
+  [key: string]: any;
+  industry?: string;
+  region?: string;
 }
 
 /**
- * Rozhraní pro callback logování
- */
-export interface LogCallback {
-  (message: string, level?: LogLevel): Promise<void>;
-}
-
-/**
- * Rozhraní pro poskytovatele scraperu
+ * Poskytovatel scraperu
  */
 export interface ScraperProvider {
-  createScraper(config: ScraperInitParams): Promise<any>;
+  createScraper: (config: ScraperInitParams) => Promise<any>;
 }

@@ -22,15 +22,17 @@ export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElemen
  */
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     ({ className, checked, onCheckedChange, ...props }, ref) => {
+
+        console.log({ className, checked, onCheckedChange, ...props });
         return (
-            <div className="relative flex items-center">
+            <label className="relative flex items-center">
                 <input
+                    {...props}
                     type="checkbox"
                     className="peer sr-only"
                     ref={ref}
                     checked={checked}
                     onChange={(e) => onCheckedChange?.(e.target.checked)}
-                    {...props}
                 />
                 <div
                     className={cn(
@@ -41,12 +43,12 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
                 >
                     {checked && (
                         <Check
-                            className="h-3 w-3 text-white stroke-[3]"
+                            className="h-3 w-3 pl-0.5 pt-0.5 text-white stroke-[4]"
                             aria-hidden="true"
                         />
                     )}
                 </div>
-            </div>
+            </label>
         );
     }
 );
