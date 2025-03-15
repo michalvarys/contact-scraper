@@ -7,8 +7,8 @@ WORKDIR /app
 RUN npm install -g pnpm@9.14.2
 
 # Nastavení prostředí
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# ENV PUPPETEER_SKIP_DOWNLOAD=true
+# ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PRISMA_SCHEMA_PATH=./packages/database/prisma/schema.prisma
 ENV SHELL=/bin/sh
 
