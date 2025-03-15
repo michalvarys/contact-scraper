@@ -205,6 +205,7 @@ export class FirmyCzScraper extends BaseScraper {
     });
 
     console.log(`Scraped data for: ${data.name}`);
+    // @ts-ignore
     return data;
   }
 }

@@ -7,9 +7,9 @@ import TaskDetail from "@/sections/tasks/TaskDetailPage";
 import { Loader2 } from "lucide-react";
 
 interface TaskDetailPageProps {
-    params: {
+    params: Promise<{
         id: string;
-    };
+    }>
 }
 
 /**

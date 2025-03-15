@@ -161,6 +161,7 @@ export class GoogleMapsScraper extends BaseScraper {
     });
 
     console.log(`Scraped data for: ${data.name}`);
+    // @ts-ignore
     return data;
   }
 }

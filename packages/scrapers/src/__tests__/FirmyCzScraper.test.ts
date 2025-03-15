@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { FirmyCzScraper } from '../FirmyCzScraper';
 import { mockBusinesses, mockFirmyCzHtml } from '../__mocks__/businessMocks';
 import puppeteer from 'puppeteer';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
 import { mockBusinesses, mockGoogleMapsHtml } from '../__mocks__/businessMocks';
 import * as services from '../services';

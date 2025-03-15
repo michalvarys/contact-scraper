@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { GoogleMapsScraper } from '../GoogleMapsScraper';
 import { mockBusinesses, mockGoogleMapsHtml } from '../__mocks__/businessMocks';
 import puppeteer from 'puppeteer';

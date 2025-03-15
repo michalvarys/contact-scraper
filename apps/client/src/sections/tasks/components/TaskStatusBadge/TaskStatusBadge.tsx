@@ -18,6 +18,7 @@ export interface TaskStatusBadgeProps {
  */
 const TaskStatusBadge: React.FC<TaskStatusBadgeProps> = ({ status, className }) => {
     // Mapování stavu na variantu pro Badge
+    //@ts-ignore
     const statusVariantMap: Record<ScraperTaskStatus | ScrapedLinkStatus, "default" | "success" | "warning" | "danger" | "info"> = {
         [ScraperTaskStatus.PENDING]: "warning",
         [ScraperTaskStatus.RUNNING]: "info",

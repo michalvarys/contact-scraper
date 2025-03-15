@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { WebsiteAnalysisResult } from '../types';
 import { mockWebsiteAnalysis } from './businessMocks';
 

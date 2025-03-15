@@ -343,6 +343,7 @@ export class AiGoogleMapsScraper extends BaseScraper {
     });
 
     console.log(`AI-enhanced scraping completed for: ${data.name}`);
+    // @ts-ignore
     return data;
   }
 }

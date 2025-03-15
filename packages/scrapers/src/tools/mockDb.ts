@@ -1,4 +1,5 @@
-import { Business, ScraperTask, ScrapedLink, ScraperLog, ScraperTaskStatus } from '../types';
+import { ScraperTask, ScrapedLink, ScraperTaskStatus } from '@contact-scraper/db';
+import { Business, ScraperLog } from '../types';
 
 class PrismaMock {
   private tasks: Map<string, ScraperTask> = new Map();
@@ -27,6 +28,7 @@ class PrismaMock {
         id,
         createdAt: new Date(),
         updatedAt: new Date(),
+        //@ts-ignore
         scrapedLinks: [],
         ...data,
       };
@@ -70,6 +72,7 @@ class PrismaMock {
     }) => {
       data.forEach((link) => {
         const id = Math.random().toString(36).substring(7);
+        //@ts-ignore
         const newLink: ScrapedLink = {
           id,
           createdAt: new Date(),

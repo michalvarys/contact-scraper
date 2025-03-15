@@ -18,7 +18,7 @@ async function testGoogleMapsScraper() {
 
   try {
     // Vytvoření instance scraperu
-    const scraper = new GoogleMapsScraper('kavárna', 'Praha', false);
+    const scraper = new GoogleMapsScraper({});
 
     // Scrapování jednoho odkazu
     const link = 'https://www.google.com/maps/place/Kavárna+U+Růže';
@@ -27,7 +27,7 @@ async function testGoogleMapsScraper() {
     const result = await scraper.scrapeLink(link);
     console.log('Výsledek:', result);
 
-    await scraper.closeBrowser();
+    await scraper.close();
     console.log('Test GoogleMapsScraper dokončen.');
   } catch (error) {
     console.error('Chyba při testování GoogleMapsScraper:', error);
@@ -42,7 +42,7 @@ async function testFirmyCzScraper() {
 
   try {
     // Vytvoření instance scraperu
-    const scraper = new FirmyCzScraper('autoservis', 'Plzeň', false);
+    const scraper = new FirmyCzScraper({});
 
     // Scrapování jednoho odkazu
     const link = 'https://www.firmy.cz/detail/12345-autoservis-rychly-plzen.html';
@@ -51,7 +51,7 @@ async function testFirmyCzScraper() {
     const result = await scraper.scrapeLink(link);
     console.log('Výsledek:', result);
 
-    await scraper.closeBrowser();
+    await scraper.close();
     console.log('Test FirmyCzScraper dokončen.');
   } catch (error) {
     console.error('Chyba při testování FirmyCzScraper:', error);
@@ -75,7 +75,7 @@ async function testAiGoogleMapsScraper() {
     const link = 'https://www.google.com/maps/place/Kavárna+U+Růže';
     console.log(`Scrapování odkazu: ${link}`);
 
-    const result = await scraper.getCompanyDataFromLink(link, 'kavárna', 'Praha');
+    const result = await scraper.getCompanyDataFromLink(link);
     console.log('Výsledek:', result);
 
     await scraper.close();

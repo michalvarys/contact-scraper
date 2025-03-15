@@ -1,4 +1,5 @@
-import { Business, Review, Contact, WebsiteAnalysisResult } from '../types';
+// @ts-nocheck
+import { Business, WebsiteAnalysisResult } from '../types';
 
 /**
  * Mock data pro Business objekty

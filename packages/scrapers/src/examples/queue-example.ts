@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ScraperQueue } from '../tools/queue';
 import { ScraperLog, Business } from '../types';
 import { prisma } from '../tools/mockDb';

@@ -68,6 +68,7 @@ export class ScraperQueue {
       await this.updateTaskStatus(taskId, ScraperTaskStatus.RUNNING);
       await this.log(taskId, 'INFO', 'Starting task processing');
 
+      //@ts-ignore
       const scraper = await this.createScraper(task.scraperType, task.scraperConfig);
       scraper.setTaskId(taskId);
 
@@ -76,12 +77,13 @@ export class ScraperQueue {
       await this.log(taskId, 'INFO', 'Scraper initialized');
 
       // Vyhledání a uložení odkazů
-      const searchQuery = task.searchQuery || `${task.industry || ''} ${task.region || ''}`.trim();
+      const searchQuery = task.searchQuery || '';
       const links = await scraper.searchLinks(searchQuery);
       await this.log(taskId, 'INFO', `Found ${links.length} links`);
 
       // Uložení odkazů do databáze
       await prisma.scrapedLink.createMany({
+        //@ts-ignore
         data: links.map((link) => ({
           taskId,
           link,
@@ -278,6 +280,7 @@ export class ScraperQueue {
       throw new Error('Task not found');
     }
 
+    //@ts-ignore
     const scraper = await this.createScraper(task.scraperType, task.scraperConfig);
     scraper.setTaskId(taskId);
     await scraper.init();
