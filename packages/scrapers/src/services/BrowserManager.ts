@@ -1,6 +1,7 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { Business } from '../types';
 import { geminiService } from './GeminiService';
+import { launchBrowser } from '../tools/puppeteer';
 
 /**
  * Služba pro práci s prohlížečem
@@ -15,10 +16,7 @@ export class BrowserManager {
    * Inicializace prohlížeče
    */
   async init() {
-    this.browser = await puppeteer.launch({
-      headless: this.headless ? 'new' : false,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    this.browser = await launchBrowser(this.headless);
     this.page = await this.browser.newPage();
     await this.page.setViewport({ width: 720, height: 1280 });
     await this.page.setUserAgent(

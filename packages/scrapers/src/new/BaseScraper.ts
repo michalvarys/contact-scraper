@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { BaseBusinessData, BusinessData } from '../types';
+import { launchBrowser } from '../tools/puppeteer';
 
 export interface ScraperConfig {
   headless?: boolean;
@@ -42,10 +43,7 @@ export abstract class BaseScraper {
   }
 
   public async init(): Promise<void> {
-    this.browser = await puppeteer.launch({
-      headless: this.config.headless ? 'new' : false,
-    });
-
+    this.browser = await launchBrowser(this.config.headless);
     this.page = await this.browser.newPage();
 
     // Nastavení viewportu

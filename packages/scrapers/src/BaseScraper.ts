@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'fs';
 import fs from 'fs/promises';
 import { prisma } from '@contact-scraper/db';
 import { Business, ScraperOptions } from './types';
+import { launchBrowser } from './tools/puppeteer';
 
 export abstract class BaseScraper {
   protected browser: Browser | null = null;
@@ -49,19 +50,7 @@ export abstract class BaseScraper {
   // Browser initialization
   async initializeBrowser() {
     if (!this.browser) {
-      this.browser = await puppeteer.launch({
-        headless: this.headless ? 'new' : false,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu',
-        ],
-      });
+      this.browser = await launchBrowser(this.headless);
     }
 
     if (!this.page) {
