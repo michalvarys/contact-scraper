@@ -12,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./.data/data:/var/lib/postgresql/data
+      - ./.data/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -38,9 +38,11 @@ services:
       - PORT=${SERVER_PORT-3002}
     ports:
       - "${SERVER_PORT-3002}:${SERVER_PORT-3002}"
-    # volumes:
+    volumes:
     #   - ./apps/server:/app/apps/server
     #   - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/client/node_modules
     networks:
       - scraper
 
@@ -50,18 +52,19 @@ services:
       context: .
       dockerfile: ./docker/client.Dockerfile
     container_name: gmap-scrapper-client
-    env_file:
-      - .env
     depends_on:
       - api
     environment:
       - NEXT_PUBLIC_API_URL=http://api:${SERVER_PORT-3002}
+      - NEXT_PUBLIC_URL=https://scraper.varyshop.eu
       - NODE_ENV=production
     ports:
       - "${CLIENT_PORT-3001}:3001"
-    # volumes:
+    volumes:
       # - ./apps/client:/app/apps/client
       # - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/client/node_modules
     networks:
       - scraper
 
