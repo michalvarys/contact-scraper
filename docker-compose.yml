@@ -33,16 +33,14 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - DATABASE_PG_URL=postgresql://postgres:Scraper123@postgres:5432/postgres
       - NODE_ENV=production
       - PORT=${SERVER_PORT-3002}
     ports:
       - "${SERVER_PORT-3002}:${SERVER_PORT-3002}"
-    volumes:
-      - ./apps/server:/app/apps/server
-      - ./packages:/app/packages
-      - /app/node_modules
-      - /app/apps/server/node_modules
+    # volumes:
+    #   - ./apps/server:/app/apps/server
+    #   - ./packages:/app/packages
     networks:
       - scraper
 
@@ -52,6 +50,8 @@ services:
       context: .
       dockerfile: ./docker/client.Dockerfile
     container_name: gmap-scrapper-client
+    env_file:
+      - .env
     depends_on:
       - api
     environment:
@@ -59,11 +59,9 @@ services:
       - NODE_ENV=production
     ports:
       - "${CLIENT_PORT-3001}:3001"
-    volumes:
-      - ./apps/client:/app/apps/client
-      - ./packages:/app/packages
-      - /app/node_modules
-      - /app/apps/client/node_modules
+    # volumes:
+      # - ./apps/client:/app/apps/client
+      # - ./packages:/app/packages
     networks:
       - scraper
 

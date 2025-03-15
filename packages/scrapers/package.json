@@ -12,8 +12,7 @@
     "email:test": "tsx src/examples/scrape-email.ts",
     "test:scraper": "tsx src/scripts/run-test.ts",
     "scraper:test": "tsx src/test.ts",
-    "queue:example": "tsx src/scripts/run-queue-example.ts",
-    "postinstall": "pnpm setup"
+    "queue:example": "tsx src/scripts/run-queue-example.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

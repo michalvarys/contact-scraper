@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:18.20.2-alpine AS base
 
 # Nastavení pracovního adresáře
 WORKDIR /app
@@ -6,39 +6,32 @@ WORKDIR /app
 # Instalace pnpm
 RUN npm install -g pnpm@9.14.2
 
-# Kopírování souborů pro instalaci závislostí
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY apps/server/package.json ./apps/server/
-COPY packages/api/package.json ./packages/api/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/database/package.json ./packages/database/
-COPY packages/config-eslint/package.json ./packages/config-eslint/
-COPY packages/config-typescript/package.json ./packages/config-typescript/
-COPY packages/types/package.json ./packages/types/
-COPY packages/storage/package.json ./packages/storage/
-COPY packages/scrapers/package.json ./packages/scrapers/
-
-# Instalace závislostí s přeskočením stahování Chromu pro Puppeteer
+# Nastavení prostředí
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PRISMA_SCHEMA_PATH=./packages/database/prisma/schema.prisma
+ENV SHELL=/bin/sh
 
-# Instalace Chromium
-RUN apk add --no-cache chromium
+
+# Instalace systémových závislostí
+RUN apk add --no-cache chromium openssl
+RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache python3 make g++
+
+# Kopírování souborů pro instalaci závislostí
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+COPY apps/server ./apps/server
+COPY packages ./packages
+RUN pnpm i turbo@2.4.4 tsup -w
 
 # Instalace závislostí
 RUN pnpm install
 
-# Kopírování zdrojových souborů
-COPY apps/server ./apps/server
-COPY packages ./packages
-
 # Generování Prisma klienta
 RUN cd packages/database && pnpm db:generate
 
-# Build aplikace
-# Nejprve nainstalujeme globální závislosti, které mohou být potřeba pro build
-RUN npm install -g tsup
-
+# RUN pnpm turbo build
 # Postupný build jednotlivých balíčků
 RUN pnpm --filter "@contact-scraper/types" build && \
     pnpm --filter "@contact-scraper/storage" build && \
