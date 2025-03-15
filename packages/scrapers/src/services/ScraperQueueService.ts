@@ -248,8 +248,6 @@ export class ScraperQueueService {
           scraperType: params.scraperType,
           scraperConfig: configJson,
           searchQuery: params.searchQuery,
-          industry: params.industry,
-          region: params.region,
         },
         include: {
           scrapedLinks: true,
@@ -542,14 +540,6 @@ export class ScraperQueueService {
           ? JSON.parse(task.scraperConfig)
           : task.scraperConfig;
 
-      // Přidání průmyslu a regionu do konfigurace, pokud existují
-      if (task.industry) {
-        config.industry = task.industry;
-      }
-      if (task.region) {
-        config.region = task.region;
-      }
-
       // Vytvoření scraperu
       const scraper = await provider.createScraper(config);
 
@@ -615,10 +605,10 @@ export class ScraperQueueService {
       let result;
       if (task.searchQuery) {
         // Pokud je definován vyhledávací dotaz, použijeme jej
-        result = await scraper.scrape(task.searchQuery, linkCallback, logCallback);
+        result = await scraper.scrape(taskId, task.searchQuery, linkCallback, logCallback);
       } else {
         // Jinak spustíme scraper bez vyhledávacího dotazu
-        result = await scraper.scrape(undefined, linkCallback, logCallback);
+        result = await scraper.scrape(taskId, undefined, linkCallback, logCallback);
       }
 
       // Aktualizace stavu úlohy
@@ -708,14 +698,6 @@ export class ScraperQueueService {
         typeof task.scraperConfig === 'string'
           ? JSON.parse(task.scraperConfig)
           : task.scraperConfig;
-
-      // Přidání průmyslu a regionu do konfigurace, pokud existují
-      if (task.industry) {
-        config.industry = task.industry;
-      }
-      if (task.region) {
-        config.region = task.region;
-      }
 
       // Vytvoření scraperu
       const scraper = await provider.createScraper(config);
@@ -850,6 +832,58 @@ export class ScraperQueueService {
     return (await this.getTask(taskId)) as ScraperTask;
   }
 
+  async initializeLinks(taskId: string, links: string[] = []) {
+    const task = await this.getTask(taskId);
+    if (!task) {
+      return;
+    }
+
+    const existingLink = await prisma.$transaction(async (prisma) => {
+      await prisma.scrapedLink.deleteMany({
+        where: {
+          taskId,
+          link: {
+            in: links,
+          },
+          status: {
+            not: ScrapedLinkStatus.PROCESSED,
+          },
+        },
+      });
+
+      const existing = await prisma.scrapedLink.findMany({
+        where: {
+          taskId,
+          link: {
+            in: links,
+          },
+        },
+      });
+
+      const toCreate = links.filter((link) => !existing.find((el) => el.link === link));
+      if (toCreate.length > 0) {
+        await prisma.scrapedLink.createMany({
+          data: toCreate.map((link) => ({
+            link,
+            taskId,
+            status: ScrapedLinkStatus.PENDING,
+          })),
+        });
+      }
+
+      return await prisma.scrapedLink.findMany({
+        where: {
+          taskId,
+          link: {
+            in: links,
+          },
+        },
+      });
+    });
+
+    return existingLink;
+  }
+
   /**
    * Pokračuje v přerušené úloze
    * @param taskId ID úlohy
@@ -906,14 +940,6 @@ export class ScraperQueueService {
         typeof task.scraperConfig === 'string'
           ? JSON.parse(task.scraperConfig)
           : task.scraperConfig;
-
-      // Přidání průmyslu a regionu do konfigurace, pokud existují
-      if (task.industry) {
-        config.industry = task.industry;
-      }
-      if (task.region) {
-        config.region = task.region;
-      }
 
       // Vytvoření scraperu
       const scraper = await provider.createScraper(config);
@@ -996,13 +1022,12 @@ export class ScraperQueueService {
       }
 
       // Spuštění scraperu pro případné dokončení
-      if (task.searchQuery) {
-        // Pokud je definován vyhledávací dotaz, použijeme jej
-        await scraper.continueTask?.(task.searchQuery, linkCallback, logCallback);
-      } else {
-        // Jinak spustíme scraper bez vyhledávacího dotazu
-        await scraper.continueTask(undefined, linkCallback, logCallback);
-      }
+      await scraper.continueTask?.(
+        taskId,
+        task.searchQuery || undefined,
+        linkCallback,
+        logCallback,
+      );
 
       // Aktualizace stavu úlohy
       await this.updateTask(taskId, {
@@ -1017,7 +1042,7 @@ export class ScraperQueueService {
         level: LogLevel.INFO,
       });
 
-      return (await this.getTask(taskId)) as ScraperTask;
+      return task as ScraperTask;
     } catch (error) {
       // Aktualizace stavu úlohy v případě chyby
       await this.updateTask(taskId, {

@@ -22,6 +22,7 @@
         "@contact-scraper/db": "workspace:*",
         "@contact-scraper/config-eslint": "workspace:*",
         "@contact-scraper/config-typescript": "workspace:*",
+        "@contact-scraper/scrapers": "workspace:*",
         "typescript": "^5.1.6",
         "ts-node-dev": "^2.0.0"
     }

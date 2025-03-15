@@ -7,12 +7,12 @@ services:
     container_name: gmap-scrapper-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: Scraper123
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
-      - ./.data/db:/var/lib/postgresql/data
+      - ./.data/data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

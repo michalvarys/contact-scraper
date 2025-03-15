@@ -8,7 +8,7 @@ import {
 } from '@/components/atoms/Card';
 import { AlertCircle } from 'lucide-react';
 import { ScraperTask } from '@/types/scraper';
-import JsonConfigEditor from '@/components/molecules/JsonConfigEditor/JsonConfigEditor';
+import JsonConfigEditor from './JsonConfigEditor';
 
 interface TaskDetailInfoProps {
     task: ScraperTask;
@@ -31,14 +31,6 @@ export const TaskDetailInfo: React.FC<TaskDetailInfoProps> = ({
             </CardHeader>
             <CardContent>
                 <div className="space-y-4">
-                    <div>
-                        <h3 className="text-lg font-medium">Průmysl/obor</h3>
-                        <p className="text-muted-foreground">{task.industry || "-"}</p>
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-medium">Region</h3>
-                        <p className="text-muted-foreground">{task.region || "-"}</p>
-                    </div>
                     <div>
                         <h3 className="text-lg font-medium">Vyhledávací dotaz</h3>
                         <p className="text-muted-foreground">{task.searchQuery || "-"}</p>

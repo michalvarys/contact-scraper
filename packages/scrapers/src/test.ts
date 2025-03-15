@@ -1,65 +1,39 @@
-import { AiGoogleMapsScraper } from './AiGoogleMapsScraper';
-import { FirmyCzScraper } from './FirmyCzScraper';
-import scraperProviders from './providers/ScraperProviders';
-import { ScraperQueueService } from './services/ScraperQueueService';
-import { ScraperQueue } from './tools/queue';
-import { ScraperConfig } from './tools/scraperQueue';
-import { ScraperTaskStatus } from './types/queue';
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { prisma } from '@contact-scraper/db';
+import AiGoogleMapsScraper from './AiGoogleMapsScraper';
 
 async function main() {
-  const config: ScraperConfig = {
-    headless: false,
-  };
-
-  const scraper = new AiGoogleMapsScraper(config);
-  const scraper2 = new FirmyCzScraper(config);
-  const queueService = new ScraperQueueService(3);
-  queueService.registerScraperProvider('AiGoogleMapsScraper', scraperProviders.AiGoogleMapsScraper);
-  queueService.registerScraperProvider('FirmyCzScraper', scraperProviders.FirmyCzScraper);
-  queueService.registerScraperProvider('GoogleMapsScraper', scraperProviders.GoogleMapsScraper);
-  queueService.startQueue();
-
-  const scraperQueue = ScraperQueue.getInstance();
-  const tasks = await queueService.getTasks(ScraperTaskStatus.RUNNING);
-  for (const task of tasks) {
-    // await queueService.pauseTask(task.id);
-    // await queueService.runTask(task.id);
-    // const { scraperType, scraperConfig } = task;
-    // const config: ScraperConfig = JSON.parse(scraperConfig as string);
-    // const Scraper = scraperProviders[scraperType];
-    // const { scraper } =
-    //   await scraperProviders[scraperType as keyof typeof scraperProviders].createScraper(config);
-    // const scraper = new Scraper(config);
-    // await scraper.init();
-    console.dir(task, { depth: Infinity });
-    // const result = await scraper.searchLinks(`${config.industry || ''} ${config.region || ''}`);
-
-    // console.log({ task, result });
-  }
-
-  // const task = await queue.createTask({
-  //   scraperConfig: config,
-  //   scraperType: 'AiGoogleMapsScraper',
-  //   industry: 'Služby',
-  //   region: 'Karlovy vary',
-  // });
-
-  // try {
-  //   await scraper2.init();
-  //   await scraper.init();
-
-  //   const links = await scraper.searchLinks('restaurants Prague');
-  //   console.log('Found links:', links);
-
-  //   for (const link of links) {
-  //     const data = await scraper.scrapeLink(link);
-  //     console.log('Scraped data:', data);
-  //   }
-  // } catch (error) {
-  //   console.error('Error:', error);
-  // } finally {
-  //   await scraper.close();
-  // }
+  const tasks = [];
+  const sektory = [
+    // 'Služby',
+    // 'Design',
+    // 'Kadeřnictví',
+    // 'Barber',
+    // 'Software',
+    'Programátor',
+    'Tvorba webu',
+    'Digitální marketing',
+    'Poradce',
+    'Právní služby',
+    'Ruční mytí aut',
+    'Stavební firma',
+    'Natěrač a malířské služby',
+    'Fotograf',
+    'Kavárny a restaurace',
+    'Hotely a ubytování',
+    'Event management',
+    'Fitness a wellness',
+    'E-commerce',
+    'Influencer',
+    'Realitní makléř',
+    'Architekt',
+    'Zdravotnictví a estetická medicína',
+    'Autoservisy a tuning',
+    'Hudebníci a kapely',
+    'Vzdělávání',
+  ];
 }
 
 main().catch(console.error);

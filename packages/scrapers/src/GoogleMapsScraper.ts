@@ -1,4 +1,5 @@
 import { BaseScraper } from './BaseScraper';
+import { getEmailFromWebsite } from './tools/email';
 import { Business, ScraperOptions } from './types';
 
 export class GoogleMapsScraper extends BaseScraper {
@@ -6,15 +7,10 @@ export class GoogleMapsScraper extends BaseScraper {
   private taskId: string | null = null;
 
   constructor(options: ScraperOptions = {}) {
-    super(
-      options.baseUrl || 'https://www.google.com/maps',
-      options.industry || '',
-      options.region || '',
-      {
-        headless: options.headless !== undefined ? options.headless : true,
-        ...options,
-      },
-    );
+    super(options.baseUrl || 'https://www.google.com/maps', {
+      headless: options.headless !== undefined ? options.headless : true,
+      ...options,
+    });
   }
 
   /**
@@ -82,139 +78,139 @@ export class GoogleMapsScraper extends BaseScraper {
       await this.page.waitForSelector('h1', { timeout: 10000 });
 
       // Extract business details
-      return await this.page.evaluate(
-        (industry, region) => {
-          // Helper to get text content safely
-          const getText = (selector: string): string => {
-            const element = document.querySelector(selector);
-            return element ? element.textContent || '' : '';
-          };
+      const data = await this.page.evaluate(() => {
+        // Helper to get text content safely
+        const getText = (selector: string): string => {
+          const element = document.querySelector(selector);
+          return element ? element.textContent || '' : '';
+        };
 
-          // Helper to extract address
-          const getAddress = (): string => {
-            // Look for address in the button that appears when you click to copy it
-            const addressButton = Array.from(document.querySelectorAll('button')).find((btn) => {
-              const ariaLabel = btn.getAttribute('aria-label');
-              return ariaLabel && ariaLabel.includes('Adresa:');
-            });
+        // Helper to extract address
+        const getAddress = (): string => {
+          // Look for address in the button that appears when you click to copy it
+          const addressButton = Array.from(document.querySelectorAll('button')).find((btn) => {
+            const ariaLabel = btn.getAttribute('aria-label');
+            return ariaLabel && ariaLabel.includes('Adresa:');
+          });
 
-            if (addressButton) {
-              return addressButton.getAttribute('aria-label')?.replace('Adresa:', '').trim() || '';
+          if (addressButton) {
+            return addressButton.getAttribute('aria-label')?.replace('Adresa:', '').trim() || '';
+          }
+
+          // Fallback: try to find address in other elements
+          return '';
+        };
+
+        // Helper to extract phone
+        const getPhone = (): string | null => {
+          //a[href^="tel:"]
+          const phoneLink =
+            document
+              .querySelector('a[href^="tel:"]')
+              ?.getAttribute('href')
+              ?.replace('tel:', '')
+              .trim() ||
+            document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() ||
+            '';
+
+          if (phoneLink) {
+            return phoneLink;
+          }
+
+          // Look for phone button
+          const phoneButton = Array.from(document.querySelectorAll('button')).find((btn) => {
+            const ariaLabel = btn.getAttribute('aria-label');
+            return ariaLabel && /Telefon:|Volat/.test(ariaLabel);
+          });
+
+          if (phoneButton) {
+            const ariaLabel = phoneButton.getAttribute('aria-label') || '';
+            const match = ariaLabel.match(/(?:Telefon:|Volat)[:\s]*([+\d\s()-]+)/);
+            return match ? match[1].trim() : null;
+          }
+
+          return null;
+        };
+
+        // Helper to extract website
+        const getWebsite = (): string | null => {
+          // website that doesn't have google in the url
+          const website =
+            document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
+          if (website && !website.includes('google')) {
+            return website;
+          }
+
+          const links = document.querySelectorAll('[role=region] a[href]');
+          for (let i = 0; i < links.length; i++) {
+            const link = links.item(i);
+            const href = link.getAttribute('href')?.split('?').shift();
+            if (
+              href &&
+              !href.includes('google') &&
+              !href.startsWith('/maps') &&
+              !href.startsWith('tel:')
+            ) {
+              return href;
             }
+          }
 
-            // Fallback: try to find address in other elements
-            return '';
-          };
+          return null;
+        };
 
-          // Helper to extract phone
-          const getPhone = (): string | null => {
-            //a[href^="tel:"]
-            const phoneLink =
-              document
-                .querySelector('a[href^="tel:"]')
-                ?.getAttribute('href')
-                ?.replace('tel:', '')
-                .trim() ||
-              document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() ||
-              '';
+        // Helper to extract email
+        const getEmail = (): string | null => {
+          // Look for email in text content
+          const emailRegex = /[\w.-]+@[\w.-]+\.\w+/;
+          const allText = document.body.innerText;
+          const match = allText.match(emailRegex);
+          return match ? match[0] : null;
+        };
 
-            if (phoneLink) {
-              return phoneLink;
-            }
+        // Helper to extract rating
+        const getRating = (): string | null => {
+          const ratingElement = document.querySelector('[aria-label*="hvězdičkami"]');
+          return ratingElement
+            ? ratingElement.getAttribute('aria-label')?.match(/[\d,\.]+/)?.[0] || null
+            : null;
+        };
 
-            // Look for phone button
-            const phoneButton = Array.from(document.querySelectorAll('button')).find((btn) => {
-              const ariaLabel = btn.getAttribute('aria-label');
-              return ariaLabel && /Telefon:|Volat/.test(ariaLabel);
-            });
+        // Helper to extract reviews count
+        const getReviewsCount = (): number => {
+          const reviewsText =
+            document.querySelector('[aria-label*="recenzí"]')?.getAttribute('aria-label') || '';
+          const match = reviewsText.match(/(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        };
 
-            if (phoneButton) {
-              const ariaLabel = phoneButton.getAttribute('aria-label') || '';
-              const match = ariaLabel.match(/(?:Telefon:|Volat)[:\s]*([+\d\s()-]+)/);
-              return match ? match[1].trim() : null;
-            }
+        // Helper to extract categories
+        const getCategories = (): string[] => {
+          // Categories are usually in a button near the heading
+          const categoryButton = document.querySelector('button.DkEaL');
+          return categoryButton ? [categoryButton.textContent || ''] : [];
+        };
 
-            return null;
-          };
+        // Create business object
+        return {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: getText('h1'),
+          address: getAddress(),
+          email: getEmail(),
+          phone: getPhone(),
+          website: getWebsite(),
+          rating: getRating() ?? undefined,
+          reviewsCount: getReviewsCount(),
+          categories: getCategories(),
+          link: window.location.href,
+          scrapedAt: new Date().toISOString(),
+        };
+      });
 
-          // Helper to extract website
-          const getWebsite = (): string | null => {
-            // website that doesn't have google in the url
-            const website =
-              document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
-            if (website && !website.includes('google')) {
-              return website;
-            }
+      if (data.website && !data.email) {
+        data.email = await getEmailFromWebsite(data.website);
+      }
 
-            const links = document.querySelectorAll('[role=region] a[href]');
-            for (let i = 0; i < links.length; i++) {
-              const link = links.item(i);
-              const href = link.getAttribute('href')?.split('?').shift();
-              if (
-                href &&
-                !href.includes('google') &&
-                !href.startsWith('/maps') &&
-                !href.startsWith('tel:')
-              ) {
-                return href;
-              }
-            }
-
-            return null;
-          };
-
-          // Helper to extract email
-          const getEmail = (): string | null => {
-            // Look for email in text content
-            const emailRegex = /[\w.-]+@[\w.-]+\.\w+/;
-            const allText = document.body.innerText;
-            const match = allText.match(emailRegex);
-            return match ? match[0] : null;
-          };
-
-          // Helper to extract rating
-          const getRating = (): string | null => {
-            const ratingElement = document.querySelector('[aria-label*="hvězdičkami"]');
-            return ratingElement
-              ? ratingElement.getAttribute('aria-label')?.match(/[\d,\.]+/)?.[0] || null
-              : null;
-          };
-
-          // Helper to extract reviews count
-          const getReviewsCount = (): number => {
-            const reviewsText =
-              document.querySelector('[aria-label*="recenzí"]')?.getAttribute('aria-label') || '';
-            const match = reviewsText.match(/(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          };
-
-          // Helper to extract categories
-          const getCategories = (): string[] => {
-            // Categories are usually in a button near the heading
-            const categoryButton = document.querySelector('button.DkEaL');
-            return categoryButton ? [categoryButton.textContent || ''] : [];
-          };
-
-          // Create business object
-          return {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            name: getText('h1'),
-            address: getAddress(),
-            email: getEmail(),
-            phone: getPhone(),
-            website: getWebsite(),
-            industry: industry,
-            region: region,
-            rating: getRating() ?? undefined,
-            reviewsCount: getReviewsCount(),
-            categories: getCategories(),
-            link: window.location.href,
-            scrapedAt: new Date().toISOString(),
-          };
-        },
-        this.industry,
-        this.region,
-      );
+      return data;
     } catch (error) {
       console.error(`Error scraping details for ${link}:`, error);
       // Return minimal business object in case of error
@@ -225,8 +221,6 @@ export class GoogleMapsScraper extends BaseScraper {
         email: null,
         phone: null,
         website: null,
-        industry: this.industry,
-        region: this.region,
         link: link,
         reviewsCount: 0,
         scrapedAt: new Date().toISOString(),
@@ -309,7 +303,7 @@ export class GoogleMapsScraper extends BaseScraper {
       await this.page.waitForSelector('#searchboxinput');
 
       // Prepare search query
-      const query = searchQuery || `${this.industry} ${this.region}`;
+      const query = searchQuery || '';
 
       // Enter search query
       await this.page.type('#searchboxinput', query);
@@ -348,63 +342,57 @@ export class GoogleMapsScraper extends BaseScraper {
       }
 
       // For backwards compatibility, also collect data from the current page
-      const businesses = await this.page.evaluate(
-        (industry, region) => {
-          const items = document.querySelectorAll('[role="article"]');
-          const data: any[] = [];
+      const businesses = await this.page.evaluate(() => {
+        const items = document.querySelectorAll('[role="article"]');
+        const data: any[] = [];
 
-          items.forEach((item) => {
-            try {
-              const name = item.querySelector('h3.fontHeadlineSmall')?.textContent || '';
+        items.forEach((item) => {
+          try {
+            const name = item.querySelector('h3.fontHeadlineSmall')?.textContent || '';
 
-              const phone =
-                document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() || '';
-              const website =
-                document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
-              const address =
-                document.querySelector('[data-item-id="address"]')?.textContent?.trim() || '';
-              const rating =
-                document.querySelector('.F7nice span[aria-hidden="true"]')?.textContent || '';
-              const reviewsCount =
-                document.querySelector('.HHrUdb span')?.textContent?.replace('Recenze: ', '') || '';
+            const phone =
+              document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() || '';
+            const website =
+              document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
+            const address =
+              document.querySelector('[data-item-id="address"]')?.textContent?.trim() || '';
+            const rating =
+              document.querySelector('.F7nice span[aria-hidden="true"]')?.textContent || '';
+            const reviewsCount =
+              document.querySelector('.HHrUdb span')?.textContent?.replace('Recenze: ', '') || '';
 
-              const reviews = Array.from(document.querySelectorAll('.jftiEf')).map((review) => ({
-                name: review.querySelector('.d4r55')?.textContent || '',
-                rating:
-                  review
-                    .querySelector('[aria-label$="hvězdiček"]')
-                    ?.getAttribute('aria-label')
-                    ?.split(' ')[0] || '',
-                message: review.querySelector('.MyEned span')?.textContent || '',
-              }));
+            const reviews = Array.from(document.querySelectorAll('.jftiEf')).map((review) => ({
+              name: review.querySelector('.d4r55')?.textContent || '',
+              rating:
+                review
+                  .querySelector('[aria-label$="hvězdiček"]')
+                  ?.getAttribute('aria-label')
+                  ?.split(' ')[0] || '',
+              message: review.querySelector('.MyEned span')?.textContent || '',
+            }));
 
-              if (name) {
-                data.push({
-                  id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                  name,
-                  address,
-                  phone,
-                  website,
-                  rating,
-                  reviewsCount,
-                  reviews,
-                  email: null,
-                  industry: industry,
-                  region: region,
-                  link: window.location.href,
-                  scrapedAt: new Date().toISOString(),
-                });
-              }
-            } catch (error) {
-              console.error('Error processing item:', error);
+            if (name) {
+              data.push({
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                name,
+                address,
+                phone,
+                website,
+                rating,
+                reviewsCount,
+                reviews,
+                email: null,
+                link: window.location.href,
+                scrapedAt: new Date().toISOString(),
+              });
             }
-          });
+          } catch (error) {
+            console.error('Error processing item:', error);
+          }
+        });
 
-          return data;
-        },
-        this.industry,
-        this.region,
-      );
+        return data;
+      });
 
       // Save businesses from listing page and add to results
       for (const business of businesses) {
@@ -469,12 +457,10 @@ export class GoogleMapsScraper extends BaseScraper {
 
 // Export functions to run the scraper
 export async function runGoogleMapsScraper(
-  industry: string,
-  region: string,
   query?: string,
   opt?: ScraperOptions,
 ): Promise<Business[]> {
-  const scraper = new GoogleMapsScraper({ industry, region, headless: opt?.headless });
+  const scraper = new GoogleMapsScraper({ headless: opt?.headless });
   return await scraper.scrape(query);
 }
 

@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgres"
+  url      = env("DATABASE_PG_URL")
 }
 
 model User {
@@ -30,10 +30,6 @@ model Company {
   link         String           @unique
   reviewsCount Int              @default(0)
   scrapedAt    DateTime
-  industry     Industry?        @relation(fields: [industryId], references: [id])
-  industryId   Int?
-  region       Region?          @relation(fields: [regionId], references: [id])
-  regionId     Int?
   metadata     CompanyMetadata?
   metadataId   String?
 }
@@ -65,18 +61,6 @@ model Category {
   companies Company[]
 }
 
-model Industry {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  companies Company[]
-}
-
-model Region {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  companies Company[]
-}
-
 // Modely pro scraper queue
 model ScraperTask {
   id            String            @id @default(uuid())
@@ -84,8 +68,6 @@ model ScraperTask {
   scraperType   String // Typ scraperu (např. "GoogleMapsScraper", "FirmyCzScraper")
   scraperConfig String // JSON konfigurace scraperu (parametry pro inicializaci)
   searchQuery   String? // Vyhledávací dotaz, pokud je použit
-  industry      String? // Průmysl/obor
-  region        String? // Region
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   startedAt     DateTime? // Kdy byl task spuštěn

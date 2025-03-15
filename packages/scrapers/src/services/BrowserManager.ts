@@ -9,12 +9,14 @@ export class BrowserManager {
   private browser: Browser | null = null;
   private page: Page | null = null;
 
+  constructor(public headless: boolean = true) {}
+
   /**
    * Inicializace prohlížeče
    */
   async init() {
     this.browser = await puppeteer.launch({
-      headless: 'new',
+      headless: this.headless ? 'new' : false,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
     this.page = await this.browser.newPage();

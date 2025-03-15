@@ -1,80 +1,41 @@
-import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { useCategories } from "@/hooks/api";
-import { useUrlFilters } from "@/hooks";
-import { CustomSelect } from "@/components/molecules/CustomSelect";
+import CustomSelect, { CustomSelectProps } from "@/components/molecules/CustomSelect";
+import { useCategories } from "@/hooks";
+import { useMemo } from "react";
 
-interface FormData {
-    /**
-     * Vybraná kategorie
-     */
-    category: string;
-}
-
-export interface CategorySelectProps {
-    /**
-     * Vlastní CSS třídy
-     */
-    className?: string;
-}
-
-/**
- * Molekulární komponenta pro výběr kategorie
- * 
- * @example
- * ```tsx
- * <CategorySelect />
- * <CategorySelect className="w-64" />
- * ```
- */
-export const CategorySelect: React.FC<CategorySelectProps> = ({ className }) => {
-    const { data: categories = [], isLoading: loadingCategories } = useCategories();
-    const { setFilter, getFilter } = useUrlFilters();
-    const selectedCategory = getFilter('category', '');
-
-    const { control } = useForm<FormData>({
-        defaultValues: {
-            category: selectedCategory
-        }
-    });
+export function CategorySelect<T extends unknown>({ multiple, value, onChange }: Pick<CustomSelectProps<T>, 'value' | 'onChange' | 'multiple'>) {
+    const { data: categories = [] } = useCategories();
 
     // Převedení dat do formátu požadovaného CustomSelect komponentou
-    const categoryOptions = categories.map(category => ({
+    const categoryOptions = useMemo(() => categories.map((category) => ({
         id: category.id,
-        value: category.name,
+        value: category.id.toString(),
         label: category.name,
-        data: category
-    }));
+        data: category,
+    })), [categories])
 
-    const handleCategoryChange = (value: string | string[]) => {
-        // Pro kategorii očekáváme pouze string, takže pokud přijde pole, vezmeme první hodnotu
-        setFilter('category', Array.isArray(value) ? value[0] : value);
-    };
+
+    const selectValue = useMemo(() => multiple ?
+        typeof value === 'string'
+            ? [value]
+            : value.map(String)
+        : Array.isArray(value)
+            ? value[0]
+            : value, [multiple, value])
 
     return (
-        <div className={`category-filter ${className || ''}`}>
-            <Controller
-                name="category"
-                control={control}
-                render={({ field: { onChange } }) => (
-                    <CustomSelect
-                        options={categoryOptions}
-                        value={selectedCategory}
-                        onChange={(val: string | string[]) => {
-                            onChange(val); // Aktualizujeme hodnotu v react-hook-form
-                            handleCategoryChange(val); // Aktualizujeme filtr
-                        }}
-                        isLoading={loadingCategories}
-                        placeholder="Vyberte kategorii"
-                        searchPlaceholder="Vyhledat kategorii..."
-                        noOptionsMessage="Žádné kategorie nenalezeny"
-                        loadingMessage="Načítání kategorií..."
-                        emptyOptionLabel="Všechny kategorie"
-                    />
-                )}
-            />
-        </div>
-    );
-};
-
-export default CategorySelect;
+        <CustomSelect
+            options={categoryOptions}
+            value={selectValue}
+            onChange={(val: string | string[]) => {
+                const newValue = Array.isArray(val) ? val.map(String) : [];
+                onChange(newValue);
+            }}
+            placeholder="Vyberte kategorie"
+            searchPlaceholder="Vyhledat kategorie..."
+            noOptionsMessage="Žádné kategorie nenalezeny"
+            loadingMessage="Načítání kategorií..."
+            allowEmpty={false}
+            multiple={multiple}
+        />
+    )
+}

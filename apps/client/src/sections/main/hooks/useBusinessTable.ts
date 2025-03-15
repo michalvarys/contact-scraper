@@ -59,16 +59,6 @@ const defaultColumns: ColumnDef<Company, any>[] = [
     header: 'Poznámky',
     size: 200,
   }),
-  columnHelper.accessor((row) => row.industry?.name || '', {
-    id: 'industry',
-    header: 'Odvětví',
-    size: 150,
-  }),
-  columnHelper.accessor((row) => row.region?.name || '', {
-    id: 'region',
-    header: 'Region',
-    size: 150,
-  }),
   columnHelper.accessor('scrapedAt', {
     header: 'Vytvořeno',
     size: 150,
@@ -150,7 +140,6 @@ export const useBusinessTable = (options: UseBusinessTableOptions = {}): UseBusi
 
   // Filtry a parametry pro API
   const { filters, setFilters } = useFilters();
-
   // Načtení dat z API
   const {
     data: {

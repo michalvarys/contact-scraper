@@ -149,8 +149,6 @@ export async function extractMapData(html: string) {
           "address": "12, Loketská 344, 360 06 Karlovy Vary",
           "rating": "4.3",
           "reviewsCount": "29",
-          "industry": "stavební firma",
-          "region": "Karlovy Vary",
           "reviews": [
               {
                   "rating": "5",
@@ -188,8 +186,6 @@ export async function extractMapScreenData(attachments: string[]) {
           "address": "12, Loketská 344, 360 06 Karlovy Vary",
           "rating": "4.3",
           "reviewsCount": "29",
-          "industry": "stavební firma",
-          "region": "Karlovy Vary",
           "reviews": [
               {
                   "rating": "5",

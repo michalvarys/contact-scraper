@@ -1,14 +1,17 @@
-import { Business } from './types';
+import { Business, ScraperOptions } from './types';
 import { geminiService, websiteAnalyzer, databaseManager, BrowserManager } from './services';
 import * as cheerio from 'cheerio';
+import { EmailScraper } from './scrapers/EmailScraper';
+import { getEmailFromWebsite } from './tools/email';
 
 // Flag pro sledování stavu Gemini API
 let geminiTooManyRequestsError = false;
 /**
  * Scraper pro Google Maps s využitím AI pro extrakci dat
  */
-class AiGoogleMapsScraper {
+export class AiGoogleMapsScraper {
   private browserManager: BrowserManager;
+  taskId: string | null = null;
 
   // Getter pro zjištění stavu Gemini API
   static get geminiTooManyRequestsError(): boolean {
@@ -20,8 +23,8 @@ class AiGoogleMapsScraper {
     geminiTooManyRequestsError = value;
   }
 
-  constructor() {
-    this.browserManager = new BrowserManager();
+  constructor(options: ScraperOptions = { headless: true }) {
+    this.browserManager = new BrowserManager(options.headless);
   }
   /**
    * Inicializace scraperu
@@ -57,6 +60,13 @@ class AiGoogleMapsScraper {
       await page.waitForNavigation({ waitUntil: 'networkidle2' });
       await this.browserManager.delay(3000);
 
+      // Single record under the query redirects to company page
+      const url = page.url();
+      const isPlace = url.startsWith('https://www.google.com/maps/place');
+      if (isPlace) {
+        return [url];
+      }
+
       // 2. Scrollování a získání všech odkazů na firmy
       const companies = await this.browserManager.scrollAndExtractLinks();
 
@@ -65,14 +75,35 @@ class AiGoogleMapsScraper {
     return [];
   }
 
+  setTaskId(taskId: string) {
+    this.taskId = taskId;
+  }
+
+  async scrapeLink(link: string) {
+    return this.getCompanyDataFromLink(link);
+  }
+
+  /**
+   * Metoda pro obohacení dat o firmě
+   * @param business Data o firmě
+   * @param link Odkaz na detail firmy
+   * @returns Obohacená data o firmě
+   */
+  enrichBusinessData(business: Business, link: string): Business {
+    // Přidání ID úlohy, pokud je nastaveno
+    if (this.taskId) {
+      business.taskId = this.taskId;
+      business.sourceLink = link;
+    }
+    return business;
+  }
+
   /**
    * Získá data o firmě z odkazu a uloží je do databáze
    * @param link Odkaz na detail firmy v Google Maps
-   * @param industryName Volitelný název odvětví
-   * @param regionName Volitelný název regionu
    * @returns Data o firmě
    */
-  async getCompanyDataFromLink(link: string, industryName?: string, regionName?: string) {
+  async getCompanyDataFromLink(link: string) {
     await this.init();
 
     // Navštívení stránky firmy
@@ -91,10 +122,17 @@ class AiGoogleMapsScraper {
 
     // Pokud má firma webovou stránku a nemáme problém s Gemini API, získáme z ní další data
     if (companyData.website && !AiGoogleMapsScraper.geminiTooManyRequestsError) {
+      // Nejprve zkontrolujeme, zda už existuje analýza pro tuto webovou stránku
+      const existingAnalysis = await databaseManager.getExistingWebsiteAnalysis(
+        companyData.website,
+      );
+
+      // Pokud existuje, použijeme ji, jinak provedeme novou analýzu
       const websiteData = await websiteAnalyzer.analyzeWebsite(
         this.browserManager.getPage(),
         companyData.website,
         companyData.email,
+        existingAnalysis,
       );
 
       // Přidání dat o webové stránce k datům o firmě
@@ -103,25 +141,21 @@ class AiGoogleMapsScraper {
       console.warn('Přeskakuji analýzu webové stránky kvůli chybě Gemini API: Too Many Requests');
     }
 
+    if (!companyData.email && companyData.website) {
+      companyData.email = await getEmailFromWebsite(companyData.website);
+    }
+
     // Zpracování a uložení dat do databáze
-    const savedCompany = await databaseManager.saveCompanyData(
-      companyData,
-      industryName,
-      regionName,
-    );
+    const savedCompany = await databaseManager.saveCompanyData(companyData);
 
     return savedCompany;
   }
 
-  /**
-   * Hlavní metoda pro získávání dat o firmách podle oboru a regionu
-   */
-  async scrapeCompanies(industry: string, region: string) {
+  async scrapeCompanies(searchQuery: string) {
     await this.init();
 
     try {
       // 1. Navštívení Google Maps a vyhledání dotazu
-      const searchQuery = `${industry} ${region}`;
       await this.browserManager.navigateTo('https://www.google.com/maps');
       await this.browserManager.confirmCookiesModal();
 
@@ -164,10 +198,16 @@ class AiGoogleMapsScraper {
 
           // Pokud má firma webovou stránku a nemáme problém s Gemini API, získáme z ní další data
           if (companyData.website && !AiGoogleMapsScraper.geminiTooManyRequestsError) {
+            // Nejprve zkontrolujeme, zda už existuje analýza pro tuto webovou stránku
+            const existingAnalysis = await databaseManager.getExistingWebsiteAnalysis(
+              companyData.website,
+            );
+
             const websiteData = await websiteAnalyzer.analyzeWebsite(
               this.browserManager.getPage(),
               companyData.website,
               companyData.email,
+              existingAnalysis,
             );
 
             // Přidání dat o webové stránce k datům o firmě
@@ -178,8 +218,12 @@ class AiGoogleMapsScraper {
             );
           }
 
+          if (!companyData.email && companyData.website) {
+            companyData.email = await getEmailFromWebsite(companyData.website);
+          }
+
           // Zpracování a uložení dat do databáze
-          await databaseManager.saveCompanyData(companyData, industry, region);
+          await databaseManager.saveCompanyData(companyData);
         } catch (error) {
           console.error(`Chyba při zpracování firmy s odkazem ${company.link}:`, error);
         }

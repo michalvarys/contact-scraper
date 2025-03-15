@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/pg"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_PG_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id           String           @id @default(uuid())
+  name         String
+  address      String
+  email        String?
+  phone        String?
+  website      String?
+  categories   Category[]
+  link         String           @unique
+  reviewsCount Int              @default(0)
+  scrapedAt    DateTime
+  metadata     CompanyMetadata?
+  metadataId   String?
+}
+
+model CompanyMetadata {
+  id        String          @id @default(uuid())
+  notes     String?
+  // JSON
+  data      String?
+  website   CompanyWebsite?
+  company   Company         @relation(fields: [companyId], references: [id])
+  companyId String          @unique
+}
+
+model CompanyWebsite {
+  id        String  @id @default(uuid())
+  link      String
+  thumbnail String?
+  // JSON
+  data      String?
+
+  CompanyMetadata CompanyMetadata @relation(fields: [metadataId], references: [id])
+  metadataId      String          @unique
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  companies Company[]
+}
+
+// Modely pro scraper queue
+model ScraperTask {
+  id            String            @id @default(uuid())
+  status        ScraperTaskStatus @default(PENDING)
+  scraperType   String // Typ scraperu (např. "GoogleMapsScraper", "FirmyCzScraper")
+  scraperConfig String // JSON konfigurace scraperu (parametry pro inicializaci)
+  searchQuery   String? // Vyhledávací dotaz, pokud je použit
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  startedAt     DateTime? // Kdy byl task spuštěn
+  completedAt   DateTime? // Kdy byl task dokončen
+  errorMessage  String? // Chybová hláška v případě selhání
+  scrapedLinks  ScrapedLink[] // Odkazy, které scraper nalezl a zpracoval
+  logs          ScraperTaskLog[] // Logy k tasku
+}
+
+enum ScraperTaskStatus {
+  PENDING // Čeká na zpracování
+  RUNNING // Právě běží
+  COMPLETED // Úspěšně dokončen
+  FAILED // Selhal s chybou
+  PROCESSED
+  PAUSED // Pozastaven (např. manuálně)
+  INTERRUPTED // Přerušen nečekaným ukončením serveru
+}
+
+model ScrapedLink {
+  id           String            @id @default(uuid())
+  link         String // URL odkazu
+  status       ScrapedLinkStatus @default(PENDING)
+  processedAt  DateTime? // Kdy byl odkaz zpracován
+  errorMessage String? // Chybová hláška v případě selhání
+  companyId    String? // ID společnosti (pokud byla uložena)
+  task         ScraperTask       @relation(fields: [taskId], references: [id])
+  taskId       String // Odkaz na task, který tento odkaz zpracovává
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+enum ScrapedLinkStatus {
+  PENDING // Čeká na zpracování
+  RUNNING // Právě běží
+  PROCESSED // Úspěšně zpracován
+  FAILED // Selhal s chybou
+  SKIPPED // Přeskočen (např. už existuje v databázi)
+}
+
+model ScraperTaskLog {
+  id        String      @id @default(uuid())
+  message   String // Zpráva logu
+  level     LogLevel    @default(INFO)
+  task      ScraperTask @relation(fields: [taskId], references: [id])
+  taskId    String // Odkaz na task
+  createdAt DateTime    @default(now())
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+}

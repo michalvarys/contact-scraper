@@ -5,6 +5,7 @@ import {
   ScrapedLink,
   ScraperTask,
   ScrapedLinkStatus,
+  CompanyWebsite,
 } from '@contact-scraper/db';
 
 export interface ScraperLog {
@@ -16,9 +17,7 @@ export interface ScraperLog {
 }
 
 // Základní data o firmě, která scraper získává
-export interface BaseBusinessData extends Omit<Company, 'industryId' | 'regionId' | 'metadataId'> {
-  region?: string | null;
-  industry?: string | null;
+export interface BaseBusinessData extends Omit<Company, 'metadataId'> {
   categories?: string[];
   websiteData?: any;
   rating?: string | null;
@@ -42,8 +41,6 @@ export interface Business {
   reviewsCount: number;
   scrapedAt: Date | string;
   categories?: string[];
-  industry?: string | null;
-  region?: string | null;
   taskId?: string;
   sourceLink?: string;
   websiteData?: any;

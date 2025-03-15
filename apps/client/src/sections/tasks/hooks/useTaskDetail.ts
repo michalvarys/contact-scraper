@@ -172,7 +172,7 @@ export const useTaskDetail = (taskId: string) => {
         duration: 5000,
       });
       refetch();
-      push(`/scraper-queue/${record?.id}`);
+      push(`/scraper/${record?.id}`);
     },
   });
 
@@ -191,7 +191,7 @@ export const useTaskDetail = (taskId: string) => {
         duration: 5000,
       });
       // Přesměrování na seznam úloh
-      push('/scraper-queue');
+      push('/scraper');
     },
     onError: (error) => {
       toast({

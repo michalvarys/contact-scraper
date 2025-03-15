@@ -6,52 +6,79 @@ import { WebsiteAnalysisResult } from '../types';
  */
 export class DatabaseManager {
   /**
+   * Získá existující analýzu webové stránky pro danou URL
+   * @param websiteUrl URL webové stránky
+   * @returns Existující analýza webové stránky nebo null
+   */
+  async getExistingWebsiteAnalysis(websiteUrl: string): Promise<WebsiteAnalysisResult | null> {
+    try {
+      // Normalizace URL
+      if (websiteUrl && !/^https?:\/\//.test(websiteUrl)) {
+        websiteUrl = 'https://' + websiteUrl;
+      }
+
+      // Hledání firmy s danou webovou stránkou
+      const company = await prisma.company.findFirst({
+        where: { website: websiteUrl },
+        include: {
+          metadata: {
+            include: {
+              website: true,
+            },
+          },
+        },
+      });
+
+      // Pokud firma neexistuje nebo nemá metadata nebo webovou stránku, vrátíme null
+      if (!company || !company.metadata || !company.metadata.website) {
+        return null;
+      }
+
+      // Parsování dat z JSON
+      const metadata = company.metadata.data ? JSON.parse(company.metadata.data) : {};
+      const websiteAnalysis = company.metadata.website.data
+        ? JSON.parse(company.metadata.website.data)
+        : {};
+      const screenshots = metadata.screenshots || {};
+      const viewportAnalyses = metadata.viewportAnalyses || {};
+
+      // Vytvoření objektu s analýzou webové stránky
+      return {
+        metadata,
+        email: company.email,
+        thumbnail: company.metadata.website.thumbnail,
+        screenshots,
+        viewportAnalyses,
+        websiteAnalysis,
+      };
+    } catch (error) {
+      console.error(`Chyba při získávání existující analýzy webové stránky:`, error);
+      return null;
+    }
+  }
+  /**
    * Zpracuje data o firmě a uloží je do databáze
    * @param companyData Data o firmě
-   * @param industryName Volitelný název odvětví
-   * @param regionName Volitelný název regionu
    * @returns Uložená data o firmě
    */
-  async saveCompanyData(
-    { websiteData, ...companyData }: Record<string, any>,
-    industryName?: string,
-    regionName?: string,
-  ) {
+  async saveCompanyData({ websiteData, rating, reviews, ...companyData }: Record<string, any>) {
     try {
-      // console.dir(companyData, { depth: Infinity });
-
-      // Získání nebo vytvoření Industry (pokud je zadáno)
-      let industryRecord = null;
-      if (industryName) {
-        industryRecord = await prisma.industry.upsert({
-          where: { name: industryName },
-          update: {},
-          create: { name: industryName },
-        });
-        companyData.industryId = industryRecord.id;
-      }
-
-      // Získání nebo vytvoření Region (pokud je zadáno)
-      let regionRecord = null;
-      if (regionName) {
-        regionRecord = await prisma.region.upsert({
-          where: { name: regionName },
-          update: {},
-          create: { name: regionName },
-        });
-        companyData.regionId = regionRecord.id;
-      }
-
       // Uložení kategorií
       const categories = companyData.categories || [];
       delete companyData.categories;
+
+      if (companyData.website && !/^https?:\/\//.test(companyData.website)) {
+        companyData.website = 'https://' + companyData.website;
+      }
 
       // Uložení základních dat firmy do databáze
       const companyRecord = await prisma.company.upsert({
         where: { link: companyData.link },
         update: {
           ...companyData,
+          id: undefined,
           address: companyData.address || undefined,
+          name: companyData.name || undefined,
           reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
           categories: {
             connectOrCreate: categories.map((categoryName: string) => ({
@@ -62,11 +89,11 @@ export class DatabaseManager {
         },
         create: {
           ...companyData,
+          id: undefined,
           address: companyData.address || '',
           reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
-          id: companyData.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
           link: companyData.link,
-          name: companyData.name,
+          name: companyData.name || '',
           scrapedAt: new Date(),
           categories: {
             connectOrCreate: categories.map((categoryName: string) => ({
@@ -89,8 +116,6 @@ export class DatabaseManager {
         where: { id: companyRecord.id },
         include: {
           categories: true,
-          industry: true,
-          region: true,
           metadata: {
             include: {
               website: true,

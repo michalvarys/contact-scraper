@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { publicProcedure, router } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { prisma, ScraperTaskStatus, ScrapedLinkStatus } from '@contact-scraper/db';
+import queueService from '@contact-scraper/scrapers/src/services/ScraperQueueService';
+import { getEmailFromWebsite } from '@contact-scraper/scrapers/src/tools/email';
 
 // Enum pro stavy úloh
 export { ScraperTaskStatus, ScrapedLinkStatus };
@@ -11,13 +13,21 @@ export const scraperRouter = router({
     return ['GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper'];
   }),
 
+  getEmailFromWebsite: publicProcedure
+    .input(
+      z.object({
+        url: z.string().url(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return getEmailFromWebsite(input.url);
+    }),
+
   createTask: publicProcedure
     .input(
       z.object({
         scraperType: z.string(),
         scraperConfig: z.record(z.any()),
-        industry: z.string().optional(),
-        region: z.string().optional(),
         searchQuery: z.string().optional(),
       }),
     )
@@ -29,8 +39,6 @@ export const scraperRouter = router({
             typeof input.scraperConfig === 'string'
               ? input.scraperConfig
               : JSON.stringify(input.scraperConfig),
-          industry: input.industry,
-          region: input.region,
           searchQuery: input.searchQuery,
           status: ScraperTaskStatus.PENDING,
         },
@@ -86,12 +94,32 @@ export const scraperRouter = router({
       }),
     )
     .query(async ({ input }) => {
-      return prisma.scrapedLink.findMany({
+      // Nejprve získáme všechny odkazy
+      const links = await prisma.scrapedLink.findMany({
         where: { taskId: input.taskId },
         orderBy: {
           createdAt: 'desc',
         },
       });
+
+      // Pro každý odkaz, který má companyId, získáme informace o firmě
+      const linksWithCompanyInfo = await Promise.all(
+        links.map(async (link) => {
+          if (link.companyId) {
+            const company = await prisma.company.findUnique({
+              where: { id: link.companyId },
+              select: {
+                id: true,
+                name: true,
+              },
+            });
+            return { ...link, company };
+          }
+          return { ...link, company: null };
+        }),
+      );
+
+      return linksWithCompanyInfo;
     }),
 
   getTaskLogs: publicProcedure
@@ -142,6 +170,7 @@ export const scraperRouter = router({
       }),
     )
     .mutation(async ({ input }) => {
+      await queueService.resumeTask(input.id);
       return prisma.scraperTask.update({
         where: { id: input.id },
         data: { status: ScraperTaskStatus.RUNNING },
@@ -180,6 +209,7 @@ export const scraperRouter = router({
       }),
     )
     .mutation(async ({ input }) => {
+      queueService.processLink(input.taskId, input.link);
       return prisma.scrapedLink.updateMany({
         where: {
           taskId: input.taskId,
@@ -227,8 +257,6 @@ export const scraperRouter = router({
           scraperType: task.scraperType,
           scraperConfig: task.scraperConfig,
           status: ScraperTaskStatus.PAUSED,
-          industry: task.industry,
-          region: task.region,
           searchQuery: task.searchQuery,
         },
       });
@@ -282,8 +310,6 @@ export const scraperRouter = router({
           include: {
             metadata: true,
             categories: true,
-            industry: true,
-            region: true,
           },
         });
 
@@ -335,6 +361,47 @@ export const scraperRouter = router({
           taskId: input.taskId,
           link: input.link,
           status: ScrapedLinkStatus.PENDING,
+        },
+      });
+    }),
+
+  rescrapLink: publicProcedure
+    .input(
+      z.object({
+        linkId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      // Najdeme odkaz
+      const link = await prisma.scrapedLink.findUnique({
+        where: { id: input.linkId },
+      });
+
+      if (!link) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Link not found',
+        });
+      }
+
+      // Resetujeme stav odkazu na PENDING a vymažeme companyId, pokud existuje
+      await prisma.scrapedLink.update({
+        where: { id: input.linkId },
+        data: {
+          status: ScrapedLinkStatus.PENDING,
+          companyId: null,
+          processedAt: null,
+          errorMessage: null,
+        },
+      });
+
+      // Spustíme zpracování odkazu
+      queueService.processLink(link.taskId, link.link);
+
+      return prisma.scrapedLink.update({
+        where: { id: input.linkId },
+        data: {
+          status: ScrapedLinkStatus.RUNNING,
         },
       });
     }),

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/molecules/Dialog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, RefreshCw } from 'lucide-react';
+import Button from '@/components/atoms/Button';
 import { useLinkData } from '../hooks/useLinkData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/atoms/Card';
 import { formatDate } from '../utils/date';
@@ -12,7 +13,7 @@ interface LinkDataDialogProps {
 }
 
 export const LinkDataDialog: React.FC<LinkDataDialogProps> = ({ linkId, isOpen, onClose }) => {
-    const { linkData, isLoading, error } = useLinkData(linkId);
+    const { linkData, isLoading, error, rescrapLink, isRescrapingLink } = useLinkData(linkId);
 
     return (
         <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
@@ -115,17 +116,36 @@ export const LinkDataDialog: React.FC<LinkDataDialogProps> = ({ linkId, isOpen, 
                                                 </a>
                                             </div>
                                         )}
+
                                         {linkData.company.website && (
                                             <div className="col-span-2">
                                                 <p className="text-sm font-medium text-gray-500">Web</p>
-                                                <a
-                                                    href={linkData.company.website}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:underline break-all"
-                                                >
-                                                    {linkData.company.website}
-                                                </a>
+                                                <div className="flex items-center gap-2">
+                                                    <a
+                                                        href={linkData.company.website}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:underline break-all"
+                                                    >
+                                                        {linkData.company.website}
+                                                    </a>
+
+                                                    {/* Tlačítko pro získání emailu, pokud web existuje, ale email ne */}
+                                                    {!linkData.company?.email && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="ml-2"
+                                                            onClick={() => {
+                                                                // Funkce zatím prázdná
+                                                                console.log('Získat email z webu:', linkData.company!.website);
+                                                            }}
+                                                        >
+                                                            <Mail className="mr-2 h-4 w-4" />
+                                                            Získat email
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         <div>
@@ -136,18 +156,7 @@ export const LinkDataDialog: React.FC<LinkDataDialogProps> = ({ linkId, isOpen, 
                                             <p className="text-sm font-medium text-gray-500">Scrapnuto</p>
                                             <p>{formatDate(linkData.company.scrapedAt)}</p>
                                         </div>
-                                        {linkData.company.industry && (
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-500">Obor</p>
-                                                <p>{linkData.company.industry.name}</p>
-                                            </div>
-                                        )}
-                                        {linkData.company.region && (
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-500">Region</p>
-                                                <p>{linkData.company.region.name}</p>
-                                            </div>
-                                        )}
+
                                         {linkData.company.categories && linkData.company.categories.length > 0 && (
                                             <div className="col-span-2">
                                                 <p className="text-sm font-medium text-gray-500">Kategorie</p>
@@ -178,9 +187,30 @@ export const LinkDataDialog: React.FC<LinkDataDialogProps> = ({ linkId, isOpen, 
 
                         {!linkData.company && (
                             <div className="bg-yellow-50 p-4 rounded-md">
-                                <p className="text-yellow-800">
-                                    Pro tento odkaz nebyla nalezena žádná scrapnutá data firmy.
-                                </p>
+                                <div className="flex flex-col gap-4">
+                                    <p className="text-yellow-800">
+                                        Pro tento odkaz nebyla nalezena žádná scrapnutá data firmy.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tlačítko pro znovuspuštění scrapování, pokud je link PROCESSED */}
+                        {linkData.link.status === 'PROCESSED' && (
+                            <div className="flex justify-center">
+                                <Button
+                                    variant="outline"
+                                    onClick={rescrapLink}
+                                    disabled={isRescrapingLink}
+                                    className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300"
+                                >
+                                    {isRescrapingLink ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Znovu spustit scrapování
+                                </Button>
                             </div>
                         )}
                     </div>

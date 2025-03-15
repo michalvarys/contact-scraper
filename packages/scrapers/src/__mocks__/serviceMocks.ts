@@ -178,12 +178,10 @@ export class MockWebsiteAnalyzer {
 export class MockDatabaseManager {
   private savedCompanies: any[] = [];
 
-  async saveCompanyData(companyData: any, industryName?: string, regionName?: string) {
+  async saveCompanyData(companyData: any) {
     const savedCompany = {
       ...companyData,
       id: companyData.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      industry: industryName ? { name: industryName } : null,
-      region: regionName ? { name: regionName } : null,
       categories: (companyData.categories || []).map((name: string) => ({ name })),
       address: companyData.address || undefined,
       metadata: companyData.websiteData

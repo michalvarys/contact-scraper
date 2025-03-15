@@ -46,3 +46,6 @@ dist
 api/dist
 **/.turbo
 .data
+
+generated
+**/dev.db

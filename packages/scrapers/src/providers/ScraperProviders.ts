@@ -1,10 +1,11 @@
-import { ScraperInitParams, ScraperProvider, LogLevel } from '../types/queue';
+import { ScraperInitParams, ScraperProvider, LogLevel, ScrapedLinkStatus } from '../types/queue';
 import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
 import { BaseScraper } from '../BaseScraper';
 import { FirmyCzScraper } from '../FirmyCzScraper';
 import { GoogleMapsScraper } from '../GoogleMapsScraper';
 import { ProcessLinkResult, LinkProcessCallback, LogCallback } from '../types/queue';
 import { Business } from '../types';
+import scraperQueueService from '../services/ScraperQueueService';
 
 /**
  * Wrapper pro BaseScraper, který implementuje rozhraní pro práci s frontou
@@ -23,6 +24,7 @@ class BaseScraperWrapper {
    * @param logCallback Callback pro logování
    */
   async scrape(
+    taskId: string,
     searchQuery?: string,
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
@@ -37,66 +39,58 @@ class BaseScraperWrapper {
 
     try {
       // Vytvoříme vlastní implementaci saveToDatabase, která bude volat náš callback
-      if (linkCallback) {
-        this.scraper['saveToDatabase'] = async (business: Business) => {
-          try {
-            // Nejprve zavoláme originální metodu
-            await originalSaveToDatabase(business);
+      this.scraper['saveToDatabase'] = async (business: Business) => {
+        try {
+          // Nejprve zavoláme originální metodu
+          await originalSaveToDatabase(business);
 
-            // Poté zavoláme náš callback
-            await linkCallback(business.link, {
-              success: true,
-              business,
-            });
+          // Poté zavoláme náš callback
+          await linkCallback?.(business.link, {
+            success: true,
+            business,
+          });
 
-            if (logCallback) {
-              await logCallback(`Úspěšně zpracována firma: ${business.name} (${business.link})`);
-            }
-          } catch (error) {
-            if (logCallback) {
-              await logCallback(
-                `Chyba při ukládání firmy ${business.name} (${business.link}): ${error instanceof Error ? error.message : String(error)}`,
-                LogLevel.ERROR,
-              );
-            }
+          await logCallback?.(`Úspěšně zpracována firma: ${business.name} (${business.link})`);
+        } catch (error) {
+          await logCallback?.(
+            `Chyba při ukládání firmy ${business.name} (${business.link}): ${error instanceof Error ? error.message : String(error)}`,
+            LogLevel.ERROR,
+          );
 
-            // Zavoláme callback s chybou
-            await linkCallback(business.link, {
-              success: false,
-              error: error instanceof Error ? error : String(error),
-            });
-          }
-        };
-      }
+          // Zavoláme callback s chybou
+          await linkCallback?.(business.link, {
+            success: false,
+            error: error instanceof Error ? error : String(error),
+          });
+        }
+      };
 
       // Přepíšeme metodu pro extrakci odkazů, abychom mohli logovat
-      if (logCallback) {
-        this.scraper['extractCompanyLinks'] = (html: string) => {
-          const links = originalExtractCompanyLinks(html);
-          logCallback(`Nalezeno ${links.length} odkazů na firmy`);
-          return links;
-        };
-      }
+      this.scraper['extractCompanyLinks'] = (html: string) => {
+        const links = originalExtractCompanyLinks(html);
+        logCallback?.(`Nalezeno ${links.length} odkazů na firmy`);
+        return links;
+      };
 
       // Spustíme scraper
-      const result = await this.scraper.scrape(searchQuery);
+      const result = await this.scraper.searchLinks(searchQuery || '');
+      await scraperQueueService.initializeLinks(taskId, result);
+      const links = await scraperQueueService.getLinks(taskId);
 
       // Vrátíme výchozí implementace
       this.scraper['saveToDatabase'] = originalSaveToDatabase;
       this.scraper['extractCompanyLinks'] = originalExtractCompanyLinks;
 
-      return result;
+      return links;
     } catch (error) {
       // Vrátíme výchozí implementace v případě chyby
       this.scraper['saveToDatabase'] = originalSaveToDatabase;
       this.scraper['extractCompanyLinks'] = originalExtractCompanyLinks;
 
-      if (logCallback) {
-        await logCallback(
-          `Chyba při scrapování: ${error instanceof Error ? error.message : String(error)}`,
-          LogLevel.ERROR,
-        );
-      }
+      await logCallback?.(
+        `Chyba při scrapování: ${error instanceof Error ? error.message : String(error)}`,
+        LogLevel.ERROR,
+      );
 
       throw error;
     }
@@ -109,17 +103,17 @@ class BaseScraperWrapper {
    * @param logCallback Callback pro logování
    */
   async continueTask(
+    taskId: string,
     searchQuery?: string,
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
   ): Promise<any> {
     // Zavoláme standardní scrape, jelikož původní scrapery nepodporují pokračování
-    if (logCallback) {
-      await logCallback(
-        `Pokračuji ve scrapování (restart) s dotazem: ${searchQuery || 'prázdný dotaz'}`,
-      );
-    }
-    return await this.scrape(searchQuery, linkCallback, logCallback);
+    await logCallback?.(
+      `Pokračuji ve scrapování (restart) s dotazem: ${searchQuery || 'prázdný dotaz'}`,
+    );
+
+    return await this.scrape(taskId, searchQuery, linkCallback, logCallback);
   }
 
   /**
@@ -131,18 +125,11 @@ class BaseScraperWrapper {
   }
 }
 
-/**
- * Wrapper pro AiGoogleMapsScraper, který implementuje rozhraní pro práci s frontou
- */
-class AiGoogleMapsScraperWrapper {
-  private scraper: AiGoogleMapsScraper;
-  private industry?: string;
-  private region?: string;
+class FirmyCzScraperWrapper {
+  private scraper: FirmyCzScraper;
 
-  constructor(scraper: AiGoogleMapsScraper, params: ScraperInitParams) {
+  constructor(scraper: FirmyCzScraper, params: ScraperInitParams) {
     this.scraper = scraper;
-    this.industry = params.industry;
-    this.region = params.region;
   }
 
   /**
@@ -152,27 +139,29 @@ class AiGoogleMapsScraperWrapper {
    * @param logCallback Callback pro logování
    */
   async scrape(
-    searchQuery?: string,
+    taskId: string,
+    searchQuery: string = '',
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
   ): Promise<any> {
-    await logCallback?.(
-      `Spouštím AI Google Maps scraper pro průmysl: ${this.industry}, region: ${this.region}`,
-    );
+    await logCallback?.(`Spouštím AI Google Maps scraper pro průmysl: ${searchQuery}`);
 
     try {
-      // Pokud nemáme vlastní dotaz, složíme ho z průmyslu a regionu
-      const query = searchQuery || `${this.industry || ''} ${this.region || ''}`.trim();
-
-      if (!query) {
-        throw new Error('Není zadán vyhledávací dotaz ani průmysl/region');
+      if (!searchQuery) {
+        throw new Error('Není zadán vyhledávací dotaz');
       }
 
-      // Originální metoda pro scrapování firem
-      const result = await this.scraper.searchLinks(query);
+      const result = await this.scraper.searchLinks(searchQuery);
 
-      for (const link of result) {
+      await scraperQueueService.initializeLinks(taskId, result);
+      const links = await scraperQueueService.getLinks(taskId);
+
+      for (const { link, status } of links) {
         try {
+          if (status === ScrapedLinkStatus.PROCESSED) {
+            continue;
+          }
+
           const business = await this.scrapeLink(link);
           linkCallback?.(link, { success: true, business });
         } catch (error: any) {
@@ -202,6 +191,7 @@ class AiGoogleMapsScraperWrapper {
    * @param logCallback Callback pro logování
    */
   async continueTask(
+    taskId: string,
     searchQuery?: string,
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
@@ -210,7 +200,7 @@ class AiGoogleMapsScraperWrapper {
     if (logCallback) {
       await logCallback(`Pokračuji ve scrapování AI Google Maps (restart)`);
     }
-    return await this.scrape(searchQuery, linkCallback, logCallback);
+    return await this.scrape(taskId, searchQuery, linkCallback, logCallback);
   }
 
   /**
@@ -218,11 +208,97 @@ class AiGoogleMapsScraperWrapper {
    * @param link Odkaz ke zpracování
    */
   async scrapeLink(link: string): Promise<Business> {
-    return (await this.scraper.getCompanyDataFromLink(
-      link,
-      this.industry,
-      this.region,
-    )) as unknown as Business;
+    return (await this.scraper.scrapeLink(link)) as unknown as Business;
+  }
+}
+
+/**
+ * Wrapper pro AiGoogleMapsScraper, který implementuje rozhraní pro práci s frontou
+ */
+class AiGoogleMapsScraperWrapper {
+  private scraper: AiGoogleMapsScraper;
+
+  constructor(scraper: AiGoogleMapsScraper, params: ScraperInitParams) {
+    this.scraper = scraper;
+  }
+
+  /**
+   * Spustí scraper s podporou callbacků pro frontu
+   * @param searchQuery Vyhledávací dotaz
+   * @param linkCallback Callback pro zpracování odkazu
+   * @param logCallback Callback pro logování
+   */
+  async scrape(
+    taskId: string,
+    searchQuery = '',
+    linkCallback?: LinkProcessCallback,
+    logCallback?: LogCallback,
+  ): Promise<any> {
+    await logCallback?.(`Spouštím AI Google Maps scraper pro průmysl: ${searchQuery}`);
+
+    try {
+      if (!searchQuery) {
+        throw new Error('Není zadán vyhledávací dotaz');
+      }
+
+      const result = await this.scraper.searchLinks(searchQuery);
+
+      await scraperQueueService.initializeLinks(taskId, result);
+      const links = await scraperQueueService.getLinks(taskId);
+
+      for (const { link, status } of links) {
+        try {
+          if (status === ScrapedLinkStatus.PROCESSED) {
+            continue;
+          }
+
+          const business = await this.scrapeLink(link);
+          linkCallback?.(link, { success: true, business });
+        } catch (error: any) {
+          linkCallback?.(link, { success: false, error: error.message });
+        }
+      }
+
+      await logCallback?.(`Scrapování dokončeno: získáno ${result.length || 0} odkazů`);
+
+      return result;
+    } catch (error) {
+      if (logCallback) {
+        await logCallback(
+          `Chyba při scrapování: ${error instanceof Error ? error.message : String(error)}`,
+          LogLevel.ERROR,
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Pokračuje ve scrapování
+   * @param searchQuery Vyhledávací dotaz
+   * @param linkCallback Callback pro zpracování odkazu
+   * @param logCallback Callback pro logování
+   */
+  async continueTask(
+    taskId: string,
+    searchQuery?: string,
+    linkCallback?: LinkProcessCallback,
+    logCallback?: LogCallback,
+  ): Promise<any> {
+    // Zavoláme standardní scrape, jelikož původní scrapery nepodporují pokračování
+    if (logCallback) {
+      await logCallback(`Pokračuji ve scrapování AI Google Maps (restart)`);
+    }
+    return await this.scrape(taskId, searchQuery, linkCallback, logCallback);
+  }
+
+  /**
+   * Zpracuje jeden konkrétní odkaz
+   * @param link Odkaz ke zpracování
+   */
+  async scrapeLink(link: string): Promise<Business> {
+    return (await this.scraper.getCompanyDataFromLink(link)) as unknown as Business;
   }
 }
 
@@ -251,12 +327,10 @@ export class FirmyCzScraperProvider implements ScraperProvider {
   async createScraper(config: ScraperInitParams): Promise<any> {
     const scraper = new FirmyCzScraper({
       baseUrl: config.baseUrl || 'https://www.firmy.cz/',
-      industry: config.industry || '',
-      region: config.region || '',
       headless: config.headless !== false,
     });
 
-    return new BaseScraperWrapper(scraper);
+    return new FirmyCzScraperWrapper(scraper, config);
   }
 }
 
@@ -271,8 +345,6 @@ export class GoogleMapsScraperProvider implements ScraperProvider {
   async createScraper(config: ScraperInitParams): Promise<any> {
     const scraper = new GoogleMapsScraper({
       baseUrl: config.baseUrl || 'https://www.google.com/maps',
-      industry: config.industry || '',
-      region: config.region || '',
       headless: config.headless !== false,
     });
 
@@ -289,7 +361,7 @@ export class AiGoogleMapsScraperProvider implements ScraperProvider {
    * @param config Konfigurace scraperu
    */
   async createScraper(config: ScraperInitParams): Promise<any> {
-    const scraper = new AiGoogleMapsScraper();
+    const scraper = new AiGoogleMapsScraper(config);
     await scraper.init();
 
     return new AiGoogleMapsScraperWrapper(scraper, config);

@@ -119,7 +119,8 @@ export class SupabaseStorage {
       }
 
       // FIXME: špatný formát
-      //@ts-ignore
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       return this.uploadFile(new Uint8Array(buffer), { ...options, contentType });
     } catch (error: any) {
       throw new Error(`Chyba při nahrávání z URL: ${error.message}`);

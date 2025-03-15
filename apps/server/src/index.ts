@@ -2,12 +2,12 @@ import dotenv from 'dotenv';
 import express, { Express, Request, Response, Router } from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
-import { runScraper, runAllScrapers, fixEmptyLinks, clean } from './services';
 import { prisma } from '@contact-scraper/db';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '@contact-scraper/api/routers';
 import { openApiDocument } from '@contact-scraper/api/openapi';
-import { ScraperQueueService, scraperProviders } from '@contact-scraper/scrapers';
+import { scraperProviders } from '@contact-scraper/scrapers';
+import queueService from '@contact-scraper/scrapers/src/services/ScraperQueueService';
 
 dotenv.config();
 
@@ -15,7 +15,7 @@ const app: Express = express();
 const router: Router = express.Router();
 const PORT = process.env.PORT || 3002;
 
-const queueService = new ScraperQueueService(3);
+queueService.setMaxConcurrentTasks(3);
 queueService.registerScraperProvider('AiGoogleMapsScraper', scraperProviders.AiGoogleMapsScraper);
 queueService.registerScraperProvider('FirmyCzScraper', scraperProviders.FirmyCzScraper);
 queueService.registerScraperProvider('GoogleMapsScraper', scraperProviders.GoogleMapsScraper);
@@ -31,8 +31,6 @@ interface CompanyQueryParams {
     limit?: string;
     keyword?: string;
     category?: string;
-    industry?: string;
-    region?: string;
     hasWebsite?: 'true' | 'false';
     hasPhone?: 'true' | 'false';
     hasEmail?: 'true' | 'false';
@@ -46,8 +44,6 @@ interface CompanyFilter {
     name?: Record<string, any>;
     address?: Record<string, any>;
     categories?: Record<string, any>;
-    industry?: Record<string, any>;
-    region?: Record<string, any>;
     website?: Record<string, any>;
     phone?: Record<string, any>;
     email?: Record<string, any>;
@@ -77,24 +73,6 @@ function createFilter(query: CompanyQueryParams): CompanyFilter {
                 name: {
                     contains: query.category,
                 },
-            },
-        };
-    }
-
-    // Filtrování podle odvětví
-    if (query.industry) {
-        filter.industry = {
-            name: {
-                equals: query.industry,
-            },
-        };
-    }
-
-    // Filtrování podle regionu
-    if (query.region) {
-        filter.region = {
-            name: {
-                equals: query.region,
             },
         };
     }
@@ -189,8 +167,6 @@ async function getCompanies(
             take: Number(limit),
             include: {
                 categories: true,
-                industry: true,
-                region: true,
             },
         });
 
@@ -222,8 +198,6 @@ async function getCompanyById(req: Request<{ id: string }>, res: Response): Prom
             where: { id },
             include: {
                 categories: true,
-                industry: true,
-                region: true,
             },
         });
 
@@ -252,8 +226,6 @@ async function createCompany(req: Request, res: Response): Promise<void> {
             reviewsCount,
             scrapedAt,
             categories,
-            industry,
-            region,
         } = req.body;
 
         if (!id || !name || !address || !link) {
@@ -274,16 +246,6 @@ async function createCompany(req: Request, res: Response): Promise<void> {
             scrapedAt: scrapedAt ? new Date(scrapedAt) : new Date(),
         };
 
-        // Přidání industryId, pokud je k dispozici
-        if (industry?.id) {
-            companyData.industryId = industry.id;
-        }
-
-        // Přidání regionId, pokud je k dispozici
-        if (region?.id) {
-            companyData.regionId = region.id;
-        }
-
         // Vytvoření společnosti
         const company = await prisma.company.create({
             data: {
@@ -301,8 +263,6 @@ async function createCompany(req: Request, res: Response): Promise<void> {
             },
             include: {
                 categories: true,
-                industry: true,
-                region: true,
             },
         });
 
@@ -323,19 +283,8 @@ async function createCompany(req: Request, res: Response): Promise<void> {
 async function updateCompany(req: Request<{ id: string }>, res: Response): Promise<void> {
     try {
         const { id } = req.params;
-        const {
-            name,
-            address,
-            email,
-            phone,
-            website,
-            link,
-            reviewsCount,
-            scrapedAt,
-            categories,
-            industry,
-            region,
-        } = req.body;
+        const { name, address, email, phone, website, link, reviewsCount, scrapedAt, categories } =
+            req.body;
 
         // Kontrola existence společnosti
         const existingCompany = await prisma.company.findUnique({
@@ -362,20 +311,6 @@ async function updateCompany(req: Request<{ id: string }>, res: Response): Promi
             reviewsCount: reviewsCount || 0,
             scrapedAt: scrapedAt ? new Date(scrapedAt) : existingCompany.scrapedAt,
         };
-
-        // Aktualizace industryId
-        if (industry?.id) {
-            updateData.industryId = industry.id;
-        } else {
-            updateData.industryId = null;
-        }
-
-        // Aktualizace regionId
-        if (region?.id) {
-            updateData.regionId = region.id;
-        } else {
-            updateData.regionId = null;
-        }
 
         // Aktualizace společnosti
         await prisma.company.update({
@@ -410,8 +345,6 @@ async function updateCompany(req: Request<{ id: string }>, res: Response): Promi
             where: { id },
             include: {
                 categories: true,
-                industry: true,
-                region: true,
             },
         });
 
@@ -588,266 +521,6 @@ async function getCategories(_req: Request, res: Response): Promise<void> {
     }
 }
 
-// Industry handlers
-async function getIndustries(_req: Request, res: Response): Promise<void> {
-    try {
-        const industries = await prisma.industry.findMany({
-            orderBy: {
-                name: 'asc',
-            },
-        });
-
-        res.json(industries);
-    } catch (error) {
-        console.error('Chyba při získávání odvětví:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function createIndustry(req: Request, res: Response): Promise<void> {
-    try {
-        const { name } = req.body;
-
-        if (!name) {
-            res.status(400).json({ error: 'Název odvětví je povinný' });
-            return;
-        }
-
-        const industry = await prisma.industry.create({
-            data: { name },
-        });
-
-        res.status(201).json(industry);
-    } catch (error) {
-        console.error('Chyba při vytváření odvětví:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function updateIndustry(req: Request<{ id: string }>, res: Response): Promise<void> {
-    try {
-        const { id } = req.params;
-        const { name } = req.body;
-
-        if (!name) {
-            res.status(400).json({ error: 'Název odvětví je povinný' });
-            return;
-        }
-
-        const industry = await prisma.industry.update({
-            where: { id: Number(id) },
-            data: { name },
-        });
-
-        res.json(industry);
-    } catch (error) {
-        console.error('Chyba při aktualizaci odvětví:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function deleteIndustry(req: Request<{ id: string }>, res: Response): Promise<void> {
-    try {
-        const { id } = req.params;
-
-        // Kontrola, zda existují firmy s tímto odvětvím
-        const companiesCount = await prisma.company.count({
-            where: { industryId: Number(id) },
-        });
-
-        if (companiesCount > 0) {
-            res.status(400).json({
-                error: `Nelze smazat odvětví, protože je přiřazeno k ${companiesCount} firmám`,
-            });
-            return;
-        }
-
-        await prisma.industry.delete({
-            where: { id: Number(id) },
-        });
-
-        res.status(204).send();
-    } catch (error) {
-        console.error('Chyba při mazání odvětví:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-// Region handlers
-async function getRegions(_req: Request, res: Response): Promise<void> {
-    try {
-        const regions = await prisma.region.findMany({
-            orderBy: {
-                name: 'asc',
-            },
-        });
-
-        res.json(regions);
-    } catch (error) {
-        console.error('Chyba při získávání regionů:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function createRegion(req: Request, res: Response): Promise<void> {
-    try {
-        const { name } = req.body;
-
-        if (!name) {
-            res.status(400).json({ error: 'Název regionu je povinný' });
-            return;
-        }
-
-        const region = await prisma.region.create({
-            data: { name },
-        });
-
-        res.status(201).json(region);
-    } catch (error) {
-        console.error('Chyba při vytváření regionu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function updateRegion(req: Request<{ id: string }>, res: Response): Promise<void> {
-    try {
-        const { id } = req.params;
-        const { name } = req.body;
-
-        if (!name) {
-            res.status(400).json({ error: 'Název regionu je povinný' });
-            return;
-        }
-
-        const region = await prisma.region.update({
-            where: { id: Number(id) },
-            data: { name },
-        });
-
-        res.json(region);
-    } catch (error) {
-        console.error('Chyba při aktualizaci regionu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function deleteRegion(req: Request<{ id: string }>, res: Response): Promise<void> {
-    try {
-        const { id } = req.params;
-
-        // Kontrola, zda existují firmy s tímto regionem
-        const companiesCount = await prisma.company.count({
-            where: { regionId: Number(id) },
-        });
-
-        if (companiesCount > 0) {
-            res.status(400).json({
-                error: `Nelze smazat region, protože je přiřazen k ${companiesCount} firmám`,
-            });
-            return;
-        }
-
-        await prisma.region.delete({
-            where: { id: Number(id) },
-        });
-
-        res.status(204).send();
-    } catch (error) {
-        console.error('Chyba při mazání regionu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-// Scraping handlers
-async function startScraping(req: Request, res: Response): Promise<void> {
-    try {
-        const { industry, region } = req.query;
-
-        if (industry && region) {
-            // Spustit scraping pro konkrétní odvětví a region
-            res.json({ message: `Spouštím scraping pro ${industry} v regionu ${region}` });
-
-            // Spustit scraping asynchronně, aby neblokoval odpověď
-            runScraper(industry as string, region as string).catch((error) => {
-                console.error('Chyba při scrapingu:', error);
-            });
-        } else if (region) {
-            const industries = await prisma.industry.findMany();
-            res.json({
-                message: `Spouštím scraping pro všechna odvětví v regionu ${region}`,
-            });
-            for (const industry of industries) {
-                try {
-                    await runScraper(industry.name, region as string);
-                } catch (error) {
-                    console.error(
-                        `Chyba při spouštění scrapingu pro odvětví: ${industry.name} v regionu ${region}:`,
-                        error,
-                    );
-                }
-            }
-        } else if (industry) {
-            const regions = await prisma.region.findMany();
-            res.json({
-                message: `Spouštím scraping pro odvětví ${industry} ve všech regionech`,
-            });
-            for (const region of regions) {
-                try {
-                    await runScraper(industry as string, region.name).catch((error) => {
-                        console.error('Chyba při scrapingu:', error);
-                    });
-                } catch (error) {
-                    console.error(
-                        `Chyba při spouštění scrapingu pro odvětví: ${industry} v regionu ${region.name}:`,
-                        error,
-                    );
-                }
-            }
-        } else {
-            // Spustit scraping pro všechny odvětví a regiony
-            res.json({ message: 'Spouštím scraping pro všechny odvětví a regiony' });
-
-            // Spustit scraping asynchronně, aby neblokoval odpověď
-            runAllScrapers().catch((error) => {
-                console.error('Chyba při scrapingu:', error);
-            });
-        }
-    } catch (error) {
-        console.error('Chyba při spouštění scrapingu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function fixScraperLinks(req: Request, res: Response): Promise<void> {
-    try {
-        // Spustit scraping pro konkrétní odvětví a region
-        res.json({ message: `Spouštím opravování špatně scrapovaných linků` });
-
-        // Spustit scraping asynchronně, aby neblokoval odpověď
-        fixEmptyLinks().catch((error) => {
-            console.error('Chyba při opravování linků:', error);
-        });
-    } catch (error) {
-        console.error('Chyba při spouštění scrapingu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
-async function cleanDatabase(req: Request, res: Response): Promise<void> {
-    try {
-        // Spustit scraping pro konkrétní odvětví a region
-        res.json({ message: `Spouštím čištění` });
-
-        // Spustit scraping asynchronně, aby neblokoval odpověď
-        clean().catch((error) => {
-            console.error('Chyba při opravování linků:', error);
-        });
-    } catch (error) {
-        console.error('Chyba při spouštění scrapingu:', error);
-        res.status(500).json({ error: 'Interní chyba serveru' });
-    }
-}
-
 // API Routes
 router.get('/companies', getCompanies);
 router.get('/companies/:id', getCompanyById);
@@ -858,27 +531,10 @@ router.post('/companies/bulk-update-category', bulkUpdateCategory);
 router.post('/companies/bulk-delete', bulkDelete);
 router.get('/categories', getCategories);
 
-// Industry routes
-router.get('/industries', getIndustries);
-router.post('/industries', createIndustry);
-router.put('/industries/:id', updateIndustry);
-router.delete('/industries/:id', deleteIndustry);
-
-// Region routes
-router.get('/regions', getRegions);
-router.post('/regions', createRegion);
-router.put('/regions/:id', updateRegion);
-router.delete('/regions/:id', deleteRegion);
-
-// Scraping routes
-router.post('/scrape', startScraping);
-router.post('/fix-links', fixScraperLinks);
-router.post('/clean', cleanDatabase);
-
 // Queue routes
 router.post('/queue/tasks', async (req: Request, res: Response) => {
     try {
-        const { scraperType, scraperConfig, searchQuery, industry, region } = req.body;
+        const { scraperType, scraperConfig, searchQuery } = req.body;
 
         if (!scraperType || !scraperConfig) {
             res.status(400).json({
@@ -892,8 +548,6 @@ router.post('/queue/tasks', async (req: Request, res: Response) => {
             scraperType,
             scraperConfig,
             searchQuery,
-            industry,
-            region,
         });
 
         res.status(201).json({

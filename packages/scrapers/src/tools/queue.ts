@@ -4,6 +4,7 @@ import { FirmyCzScraper } from '../FirmyCzScraper';
 import { prisma } from './mockDb';
 import AiGoogleMapsScraper from '../AiGoogleMapsScraper';
 import { ScraperConfig } from './scraperQueue';
+import { Business } from '../types';
 
 export class ScraperQueue {
   private static instance: ScraperQueue;
@@ -115,7 +116,7 @@ export class ScraperQueue {
 
           // Získání dat z odkazu
           const baseData = await scraper.scrapeLink(link.link);
-          const data = scraper.enrichBusinessData(baseData, link.link);
+          const data = scraper.enrichBusinessData(baseData as Business, link.link);
 
           // Uložení získaných dat
           await prisma.business.create({
@@ -283,7 +284,7 @@ export class ScraperQueue {
 
     try {
       const baseData = await scraper.scrapeLink(link);
-      const data = scraper.enrichBusinessData(baseData, link);
+      const data = scraper.enrichBusinessData(baseData as Business, link);
 
       await prisma.business.create({
         data: {

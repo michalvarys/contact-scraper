@@ -29,8 +29,6 @@ export interface CreateScraperTaskParams {
   scraperType: string;
   scraperConfig: string | Record<string, any>;
   searchQuery?: string;
-  industry?: string;
-  region?: string;
 }
 
 /**
@@ -95,8 +93,9 @@ export type LogCallback = (message: string, level?: LogLevel) => Promise<void>;
  */
 export interface ScraperInitParams {
   [key: string]: any;
-  industry?: string;
-  region?: string;
+  taskId?: string;
+  baseUrl?: string;
+  headless?: boolean;
 }
 
 /**

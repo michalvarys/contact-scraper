@@ -2,22 +2,18 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { BaseScraper } from './BaseScraper';
 import { Business, ScraperOptions } from './types';
+import { getEmailFromWebsite } from './tools/email';
 
 export class FirmyCzScraper extends BaseScraper {
   private searchQuery: string;
   private taskId: string | null = null;
 
   constructor(options: ScraperOptions = {}) {
-    super(
-      options.baseUrl || 'https://www.firmy.cz/',
-      options.industry || '',
-      options.region || '',
-      {
-        headless: options.headless !== undefined ? options.headless : true,
-        ...options,
-      },
-    );
-    this.searchQuery = `${this.industry} ${this.region}`;
+    super(options.baseUrl || 'https://www.firmy.cz/', {
+      headless: options.headless !== undefined ? options.headless : true,
+      ...options,
+    });
+    this.searchQuery = options.searchQuery || '';
   }
 
   /**
@@ -112,12 +108,14 @@ export class FirmyCzScraper extends BaseScraper {
       phone: this.extractPhone($),
       website: this.extractWebsite($),
       categories: this.extractCategories($),
-      industry: this.industry,
-      region: this.region,
       link: link,
       reviewsCount: 0,
       scrapedAt: new Date().toISOString(),
     };
+
+    if (business.website && !business.email) {
+      business.email = await getEmailFromWebsite(business.website);
+    }
 
     return business;
   }
@@ -129,7 +127,9 @@ export class FirmyCzScraper extends BaseScraper {
 
   private extractEmail($: cheerio.CheerioAPI): string | null {
     const emailLink = $('.detailEmail a');
-    return emailLink.length ? emailLink.attr('href')?.replace('mailto:', '') || null : null;
+    const email = emailLink.length ? emailLink.attr('href')?.replace('mailto:', '') || null : null;
+
+    return email?.split('?').shift() || null;
   }
 
   private extractPhone($: cheerio.CheerioAPI): string | null {

@@ -17,7 +17,7 @@ import {
 import Button from '@/components/atoms/Button';
 import { Loader2, Play, Plus, X, Eye, Filter } from 'lucide-react';
 import { ScraperTask, ScrapedLinkStatus } from '@/types/scraper';
-import TaskStatusBadge from '@/components/molecules/TaskStatusBadge';
+import TaskStatusBadge from '@/sections/tasks/components/TaskStatusBadge';
 import { formatDate } from '../utils/date';
 import { AddLinkForm } from './AddLinkForm';
 import { UseFormReturn } from 'react-hook-form';
@@ -68,11 +68,12 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
 
     // Filtrování odkazů podle vybraných stavů
     const filteredLinks = useMemo(() => {
+        if (!links) return [];
         if (statusFilters.length === 0) {
-            return task.scrapedLinks;
+            return links;
         }
-        return task.scrapedLinks.filter(link => statusFilters.includes(link.status));
-    }, [task.scrapedLinks, statusFilters]);
+        return links.filter(link => statusFilters.includes(link.status));
+    }, [links, statusFilters]);
 
     // Možnosti pro filtrování podle stavu
     const statusOptions = useMemo(() => [
@@ -137,7 +138,7 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
             )}
 
             <CardContent className="p-0">
-                {task.scrapedLinks.length === 0 ? (
+                {!links || links.length === 0 ? (
                     <div className="p-6 text-center">
                         <p className="text-muted-foreground">Žádné odkazy nebyly nalezeny.</p>
                     </div>
@@ -169,7 +170,12 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
                                             rel="noopener noreferrer"
                                             className="text-blue-600 hover:underline"
                                         >
-                                            {link.link}
+                                            {/* Zobrazíme jméno firmy, pokud existuje, jinak odkaz */}
+                                            {link.company ? (
+                                                <span className="font-semibold">{link.company.name}</span>
+                                            ) : (
+                                                link.link
+                                            )}
                                         </a>
                                     </TableCell>
                                     <TableCell>

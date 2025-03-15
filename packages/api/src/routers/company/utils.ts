@@ -28,24 +28,6 @@ export function createFilter(
     };
   }
 
-  // Filtrování podle odvětví
-  if (query.industry) {
-    filter.industry = {
-      name: {
-        equals: query.industry,
-      },
-    };
-  }
-
-  // Filtrování podle regionu
-  if (query.region) {
-    filter.region = {
-      name: {
-        equals: query.region,
-      },
-    };
-  }
-
   // Filtrování podle existence webu, emailu a telefonu
   if (query.hasWebsite === 'false') {
     filter.website = { equals: null };

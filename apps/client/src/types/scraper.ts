@@ -36,8 +36,6 @@ export interface ScraperTask {
   id: string;
   scraperType: string;
   scraperConfig: string | Record<string, any>;
-  industry?: string | null;
-  region?: string | null;
   searchQuery?: string | null;
   status: ScraperTaskStatus;
   errorMessage?: string | null;

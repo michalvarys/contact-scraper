@@ -37,17 +37,15 @@ describe('AiGoogleMapsScraper', () => {
 
   test('měl by získat data o firmě z odkazu', async () => {
     const link = 'https://www.google.com/maps/place/Kavárna+U+Růže';
-    const result = await scraper.getCompanyDataFromLink(link, 'kavárna', 'Praha');
+    const result = await scraper.getCompanyDataFromLink(link);
 
     // Ověření, že výsledek obsahuje očekávané hodnoty
     expect(result).toBeDefined();
     expect(result?.name).toBeDefined();
-    expect(result?.industry).toBeDefined();
-    expect(result?.region).toBeDefined();
   });
 
   test('měl by scrapovat firmy podle oboru a regionu', async () => {
-    const result = await scraper.scrapeCompanies('kavárna', 'Praha');
+    const result = await scraper.scrapeCompanies('kavárna Praha');
 
     // Ověření, že výsledek obsahuje očekávané hodnoty
     expect(result).toBeDefined();
@@ -58,8 +56,6 @@ describe('AiGoogleMapsScraper', () => {
   test('měl by extrahovat detaily firmy z HTML', async () => {
     // @ts-ignore - přístup k protected metodě pro testování
     const result = await scraper.scrapeBusinessDetails(
-      'kavárna',
-      'Praha',
       mockGoogleMapsHtml,
       'https://www.google.com/maps/place/Kavárna+U+Růže',
     );
@@ -67,7 +63,5 @@ describe('AiGoogleMapsScraper', () => {
     // Ověření, že výsledek obsahuje očekávané hodnoty
     expect(result).toBeDefined();
     expect(result.name).toBe('Kavárna U Růže');
-    expect(result.industry).toBe('kavárna');
-    expect(result.region).toBe('Praha');
   });
 });

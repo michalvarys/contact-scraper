@@ -1,2 +1,1 @@
-export * from './CategorySelect';
-export { default } from './CategorySelect';
+export { CategorySelect, CategorySelect as default } from './CategorySelect';

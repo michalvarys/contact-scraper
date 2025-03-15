@@ -5,8 +5,6 @@ export const companyQueryParamsSchema = z.object({
   limit: z.string().optional(),
   keyword: z.string().optional(),
   category: z.string().optional(),
-  industry: z.string().optional(),
-  region: z.string().optional(),
   hasWebsite: z.enum(['true', 'false', 'all']).optional(),
   hasPhone: z.enum(['true', 'false', 'all']).optional(),
   hasEmail: z.enum(['true', 'false', 'all']).optional(),
@@ -35,18 +33,6 @@ export const companyQueryOutputSchema = z.object({
           name: z.string(),
         }),
       ),
-      industry: z
-        .object({
-          id: z.number(),
-          name: z.string(),
-        })
-        .nullable(),
-      region: z
-        .object({
-          id: z.number(),
-          name: z.string(),
-        })
-        .nullable(),
       metadata: z
         .object({
           id: z.string(),
@@ -74,8 +60,6 @@ export const updateCompanySchema = z.object({
   phone: z.string().optional().nullable(),
   website: z.string().url().optional().nullable(),
   categoryIds: z.array(z.number()).optional(),
-  industryId: z.number().optional().nullable(),
-  regionId: z.number().optional().nullable(),
   metadata: z
     .object({
       id: z.string().optional(),

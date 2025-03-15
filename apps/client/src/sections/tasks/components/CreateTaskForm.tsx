@@ -23,8 +23,6 @@ const formSchema = z.object({
     scraperType: z.string({
         required_error: "Je nutné vybrat typ scraperu.",
     }),
-    industry: z.string().optional(),
-    region: z.string().optional(),
     searchQuery: z.string().optional(),
     headless: z.boolean().default(true),
 });
@@ -66,8 +64,6 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            industry: "",
-            region: "",
             searchQuery: "",
             headless: true,
         },
@@ -78,12 +74,8 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
         createTaskMutation.mutate({
             scraperType: values.scraperType,
             scraperConfig: {
-                industry: values.industry || undefined,
-                region: values.region || undefined,
                 headless: values.headless,
             },
-            industry: values.industry || undefined,
-            region: values.region || undefined,
             searchQuery: values.searchQuery || undefined,
         });
     };
@@ -113,32 +105,8 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
                         Vyberte typ scraperu, který chcete použít.
                     </FormDescription>
                     <FormMessage>{form.formState.errors.scraperType?.message}</FormMessage>
-                </FormItem>)} />
-
-            <div className="grid grid-cols-2 gap-4">
-                <FormItem>
-                    <FormLabel>Průmysl/obor</FormLabel>
-                    <FormControl>
-                        <Input
-                            disabled={createTaskMutation.isLoading}
-                            placeholder="Např. restaurace, hotely, ..."
-                            {...register('industry')}
-                        />
-                    </FormControl>
-                    <FormMessage>{form.formState.errors.industry?.message}</FormMessage>
-                </FormItem>
-                <FormItem>
-                    <FormLabel>Region</FormLabel>
-                    <FormControl>
-                        <Input
-                            disabled={createTaskMutation.isLoading}
-                            placeholder="Např. Praha, Brno, ..."
-                            {...register('region')}
-                        />
-                    </FormControl>
-                    <FormMessage>{form.formState.errors.region?.message}</FormMessage>
-                </FormItem>
-            </div>
+                </FormItem>)}
+            />
 
             <FormItem>
                 <FormLabel>Vyhledávací dotaz</FormLabel>

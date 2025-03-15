@@ -133,13 +133,21 @@ export class WebsiteAnalyzer {
    * @param page Puppeteer stránka
    * @param websiteUrl URL webové stránky
    * @param existingEmail Existující email (pokud je k dispozici)
+   * @param existingAnalysis Existující analýza webové stránky (pokud je k dispozici)
    * @returns Analýza webové stránky
    */
   async analyzeWebsite(
     page: Page,
     websiteUrl: string,
     existingEmail: string | null,
+    existingAnalysis?: WebsiteAnalysisResult | null,
   ): Promise<WebsiteAnalysisResult> {
+    // TODO skip pouze pokud je analýza starší než xy dní
+    // Pokud už máme existující analýzu, vrátíme ji
+    if (existingAnalysis) {
+      console.log(`Použití existující analýzy pro web ${websiteUrl}`);
+      return existingAnalysis;
+    }
     try {
       const newPage = await page.browser().newPage();
       if (!newPage) throw new Error('Nelze vytvořit novou stránku');
@@ -234,17 +242,17 @@ export class WebsiteAnalyzer {
         await this.delay(1000);
 
         // Vytvoření screenshotu
-        const screenshot = await newPage.screenshot({ fullPage: false });
+        // const screenshot = await newPage.screenshot({ fullPage: false });
 
         // Nahrání screenshotu do Supabase Storage
         try {
-          const uploadedImage = await uploadScreenshot(screenshot, businessId, {
-            imageType: 'website-screenshot',
-            suffix: size,
-          });
+          // const uploadedImage = await uploadScreenshot(screenshot, businessId, {
+          //   imageType: 'website-screenshot',
+          //   suffix: size,
+          // });
 
-          screenshots[size] = uploadedImage;
-          console.log(`Screenshot pro velikost ${size} úspěšně nahrán: ${uploadedImage.url}`);
+          // screenshots[size] = uploadedImage;
+          // console.log(`Screenshot pro velikost ${size} úspěšně nahrán: ${uploadedImage.url}`);
 
           // Uložení HTML obsahu pro tuto velikost viewportu
           htmlContents[size] = await newPage.content();

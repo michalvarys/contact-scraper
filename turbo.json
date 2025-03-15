@@ -42,6 +42,16 @@
         "db:deploy": {
             "cache": false
         },
+        "pg:generate": {
+            "cache": false
+        },
+        "pg:migrate": {
+            "cache": false,
+            "persistent": true
+        },
+        "pg:deploy": {
+            "cache": false
+        },
         "api:dev": {
             "cache": false
         },

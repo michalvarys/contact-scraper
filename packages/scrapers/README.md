@@ -113,7 +113,7 @@ class NewScraper extends BaseScraper {
 
 ## Použití v projektu
 
-Scraper queue systém je integrován s TRPC API a může být použit přes endpointy v `packages/api/src/routers/scraper.ts`. Frontend komponenty pro správu úloh jsou dostupné v `apps/client/src/app/scraper-queue/`.
+Scraper queue systém je integrován s TRPC API a může být použit přes endpointy v `packages/api/src/routers/scraper.ts`. Frontend komponenty pro správu úloh jsou dostupné v `apps/client/src/app/scraper/`.
 
 ## Testování
 

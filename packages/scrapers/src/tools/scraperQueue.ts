@@ -17,8 +17,6 @@ type ScraperConstructor = new (config: any) => QueueScraper;
 // Typ pro konfiguraci scraperu
 export interface ScraperConfig {
   baseUrl?: string;
-  industry?: string;
-  region?: string;
   headless?: boolean;
   [key: string]: any;
 }
@@ -28,8 +26,6 @@ export interface CreateScraperTaskInput {
   scraperType: string;
   scraperConfig: ScraperConfig;
   searchQuery?: string;
-  industry?: string;
-  region?: string;
 }
 
 // Napojení na databázi
@@ -54,8 +50,6 @@ export async function createScraperTask(input: CreateScraperTaskInput) {
       scraperType: input.scraperType,
       scraperConfig: config,
       status: ScraperTaskStatus.PENDING,
-      industry: input.industry,
-      region: input.region,
       searchQuery: input.searchQuery,
     },
   });
@@ -154,9 +148,6 @@ export async function runScraperTask(id: string) {
 
       // Vyhledání odkazů
       let searchQuery = task.searchQuery;
-      if (!searchQuery && (task.industry || task.region)) {
-        searchQuery = `${task.industry || ''} ${task.region || ''}`.trim();
-      }
 
       if (!searchQuery) {
         await prisma.scraperTask.update({
@@ -284,33 +275,6 @@ export async function runScraperTask(id: string) {
                               name,
                             },
                           })),
-                        }
-                      : undefined,
-                    region: result.region
-                      ? {
-                          connectOrCreate: {
-                            where: {
-                              name: result.region,
-                            },
-                            create: {
-                              name: result.region,
-                            },
-                          },
-                        }
-                      : undefined,
-                    // @ts-ignore
-                    industry: result.industry
-                      ? {
-                          connectOrCreate: {
-                            where: {
-                              // @ts-ignore
-                              name: result.industry,
-                            },
-                            create: {
-                              // @ts-ignore
-                              name: result.industry,
-                            },
-                          },
                         }
                       : undefined,
                     link: link.link,

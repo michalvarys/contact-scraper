@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/atoms/Button';
 import ConfirmButton from '@/components/atoms/ConfirmButton';
 import { ArrowLeft, Loader2, Play, Pause, RefreshCw, Trash2 } from 'lucide-react';
-import TaskStatusBadge from '@/components/molecules/TaskStatusBadge';
+import TaskStatusBadge from '@/sections/tasks/components/TaskStatusBadge';
 import { ScraperTask, ScraperTaskStatus } from '@/types/scraper';
 
 interface TaskDetailHeaderProps {
@@ -36,7 +36,7 @@ export const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
     return (
         <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
-                <Button variant="outline" onClick={() => router.push('/scraper-queue')}>
+                <Button variant="outline" onClick={() => router.push('/scraper')}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Zpět na seznam
                 </Button>

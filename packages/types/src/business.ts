@@ -62,37 +62,6 @@ export interface Category {
    */
   name: string;
 }
-
-/**
- * Typ pro odvětví
- */
-export interface Industry {
-  /**
-   * Unikátní identifikátor odvětví
-   */
-  id: number;
-
-  /**
-   * Název odvětví
-   */
-  name: string;
-}
-
-/**
- * Typ pro region
- */
-export interface Region {
-  /**
-   * Unikátní identifikátor regionu
-   */
-  id: number;
-
-  /**
-   * Název regionu
-   */
-  name: string;
-}
-
 /**
  * Typ pro obrázek firmy
  */
@@ -153,16 +122,6 @@ export interface BusinessWithRelations extends Business {
   categories?: Category[];
 
   /**
-   * Odvětví firmy
-   */
-  industry?: Industry | null;
-
-  /**
-   * Region firmy
-   */
-  region?: Region | null;
-
-  /**
    * Metadata firmy
    */
   metadata?: BusinessMetadata | null;
@@ -176,16 +135,6 @@ export type CreateBusinessInput = Omit<Business, 'id' | 'createdAt' | 'updatedAt
    * ID kategorií firmy
    */
   categoryIds?: number[];
-
-  /**
-   * ID odvětví firmy
-   */
-  industryId?: number | null;
-
-  /**
-   * ID regionu firmy
-   */
-  regionId?: number | null;
 
   /**
    * Metadata firmy
@@ -211,16 +160,6 @@ export type UpdateBusinessInput = Partial<Omit<Business, 'id' | 'createdAt' | 'u
    * ID kategorií firmy
    */
   categoryIds?: number[];
-
-  /**
-   * ID odvětví firmy
-   */
-  industryId?: number | null;
-
-  /**
-   * ID regionu firmy
-   */
-  regionId?: number | null;
 
   /**
    * Metadata firmy
@@ -253,16 +192,6 @@ export interface BusinessFilters {
   category?: string;
 
   /**
-   * Odvětví firmy
-   */
-  industry?: number;
-
-  /**
-   * Region firmy
-   */
-  region?: number;
-
-  /**
    * Má firma web?
    */
   hasWebsite?: 'true' | 'false' | 'all';
@@ -285,7 +214,7 @@ export interface BusinessSorting {
   /**
    * Pole pro řazení
    */
-  field: keyof Business | 'industry' | 'region' | 'metadata.notes';
+  field: keyof Business | 'metadata.notes';
 
   /**
    * Směr řazení

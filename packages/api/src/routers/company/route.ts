@@ -68,26 +68,6 @@ export const companyRouter = router({
               },
             });
           }
-          // const records = await ctx.prisma.company.findMany({
-          //   where: {
-          //     [field]: {
-          //       in: duplicateValues,
-          //     },
-          //   },
-          //   include: {
-          //     categories: true,
-          //     industry: true,
-          //     region: true,
-          //     metadata: {
-          //       include: {
-          //         website: true,
-          //       },
-          //     },
-          //   },
-          //   skip,
-          //   take: limitNumber,
-          //   orderBy,
-          // });
         }
 
         if (duplicateConditions.length > 0) {
@@ -100,8 +80,6 @@ export const companyRouter = router({
         where,
         include: {
           categories: true,
-          industry: true,
-          region: true,
           metadata: {
             include: {
               website: true,
@@ -130,24 +108,6 @@ export const companyRouter = router({
   // Získání kategorií
   getCategories: publicProcedure.query(async ({ ctx }) => {
     return ctx.prisma.category.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-    });
-  }),
-
-  // Získání průmyslových odvětví
-  getIndustries: publicProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.industry.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-    });
-  }),
-
-  // Získání regionů
-  getRegions: publicProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.region.findMany({
       orderBy: {
         name: 'asc',
       },
@@ -191,8 +151,6 @@ export const companyRouter = router({
       },
       include: {
         categories: true,
-        industry: true,
-        region: true,
       },
     });
 

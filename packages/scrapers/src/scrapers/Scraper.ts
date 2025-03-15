@@ -1,10 +1,7 @@
 import { type Company } from '@contact-scraper/db';
 import { ScraperQueueService } from '../services/ScraperQueueService';
 
-type ScrapedCompanyData = Omit<
-  Company,
-  'id' | 'scrapedAt' | 'metadataId' | 'industryId' | 'regionId' | 'reviewsCount'
->;
+type ScrapedCompanyData = Omit<Company, 'id' | 'scrapedAt' | 'metadataId' | 'reviewsCount'>;
 
 export class Scraper {
   constructor(
@@ -34,9 +31,7 @@ async function main() {
   //...
 
   const firmyCzScraper = new Scraper('https://www.firmy.cz', 'firmy_cz');
-  const links = await firmyCzScraper.getLinks(
-    task.searchQuery || `${task.industry} ${task.region}`,
-  );
+  const links = await firmyCzScraper.getLinks(task.searchQuery || '');
   for (const link of links) {
     const taskLink = await queue.createLink({
       link,

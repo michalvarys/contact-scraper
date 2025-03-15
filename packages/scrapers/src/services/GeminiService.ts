@@ -391,7 +391,7 @@ export class GeminiService {
    */
   async analyzeWebsiteWithScreenshots(
     htmlContents: Record<string, string>,
-    screenshotUrls: Record<string, string>,
+    screenshotUrls: Record<string, string> = {},
     url: string,
   ) {
     try {

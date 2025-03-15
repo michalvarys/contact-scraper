@@ -10,14 +10,10 @@ export abstract class BaseScraper {
   protected page: Page | null = null;
   protected businesses: Record<string, Business> = {};
   protected readonly cookiesPath: string;
-  protected industryId: number | null = null;
-  protected regionId: number | null = null;
   protected headless: boolean;
 
   constructor(
     public baseUrl: string,
-    public industry: string = '',
-    public region: string = '',
     options: ScraperOptions = {},
   ) {
     this.headless = options.headless !== undefined ? options.headless : true;
@@ -28,32 +24,7 @@ export abstract class BaseScraper {
   protected abstract getScraperName(): string;
 
   // Initialize database connections
-  public async init() {
-    if (this.industry && this.region) {
-      // Find or create industry
-      let industry = await prisma.industry.findUnique({
-        where: { name: this.industry },
-      });
-
-      if (!industry) {
-        console.log(`Industry ${this.industry} not found in database, creating...`);
-        industry = await prisma.industry.create({ data: { name: this.industry } });
-      }
-
-      // Find or create region
-      let region = await prisma.region.findUnique({
-        where: { name: this.region },
-      });
-
-      if (!region) {
-        console.log(`Region ${this.region} not found in database, creating...`);
-        region = await prisma.region.create({ data: { name: this.region } });
-      }
-
-      this.industryId = industry?.id;
-      this.regionId = region?.id;
-    }
-  }
+  public async init() {}
 
   // Cookie management
   protected async saveCookies(): Promise<void> {
@@ -122,55 +93,7 @@ export abstract class BaseScraper {
     await this.closeBrowser();
   }
 
-  // Load existing businesses from database
-  async loadDatabase() {
-    try {
-      if (!this.industry || !this.region) return;
-
-      // Find industry and region records
-      const industryRecord = await prisma.industry.findUnique({
-        where: { name: this.industry },
-      });
-
-      const regionRecord = await prisma.region.findUnique({
-        where: { name: this.region },
-      });
-
-      if (industryRecord && regionRecord) {
-        const companies = await prisma.company.findMany({
-          where: {
-            industryId: industryRecord.id,
-            regionId: regionRecord.id,
-          },
-          include: {
-            categories: true,
-          },
-        });
-
-        // Convert to scraper format
-        companies.forEach((company) => {
-          this.businesses[company.link] = {
-            id: company.id,
-            name: company.name,
-            address: company.address,
-            email: company.email,
-            phone: company.phone,
-            website: company.website,
-            industry: this.industry,
-            region: this.region,
-            reviewsCount: company.reviewsCount,
-            categories: company.categories.map((cat) => cat.name),
-            link: company.link,
-            scrapedAt: company.scrapedAt,
-          };
-        });
-
-        console.log(`Loaded ${companies.length} companies from database.`);
-      }
-    } catch (err) {
-      console.error('Error loading data from database:', err);
-    }
-  }
+  async loadDatabase() {}
 
   // Abstract methods to be implemented by child classes
   protected abstract buildPageUrl(page: number, query?: string): string;
@@ -183,65 +106,7 @@ export abstract class BaseScraper {
   }
 
   // Save business to database
-  protected async saveToDatabase(business: Business) {
-    try {
-      if (this.industry && this.region && (!this.industryId || !this.regionId)) {
-        throw new Error('Industry or region not loaded or found in database');
-      }
-
-      // Prepare category connections
-      const categoryConnections = [];
-      if (business.categories && business.categories.length > 0) {
-        for (const categoryName of business.categories) {
-          // Find or create category
-          const category = await prisma.category.upsert({
-            where: { name: categoryName },
-            update: {},
-            create: { name: categoryName },
-          });
-          categoryConnections.push({ id: category.id });
-        }
-      }
-
-      // Prepare data object
-      const data: any = {
-        id: business.id,
-        name: business.name,
-        address: business.address,
-        email: business.email,
-        phone: business.phone,
-        website: business.website,
-        link: business.link,
-        reviewsCount: business.reviewsCount,
-        scrapedAt: new Date(),
-        categories: {
-          connect: categoryConnections,
-        },
-      };
-
-      // Add industry/region connections if applicable
-      if (this.industryId) {
-        data.industry = {
-          connect: { id: this.industryId },
-        };
-      }
-
-      if (this.regionId) {
-        data.region = {
-          connect: { id: this.regionId },
-        };
-      }
-
-      // Create company in database
-      await prisma.company.create({
-        data: data,
-      });
-
-      console.log(`Business ${business.name} successfully saved to database.`);
-    } catch (error) {
-      console.error(`Error saving business ${business.name} to database:`, error);
-    }
-  }
+  protected async saveToDatabase(business: Business) {}
 
   // Helper method for delays
   protected delay(ms: number): Promise<void> {
@@ -258,11 +123,66 @@ export abstract class BaseScraper {
     return !!existingCompany;
   }
 
+  async searchLinks(query: string): Promise<string[]> {
+    await this.initializeBrowser();
+    await this.init();
+    await this.loadDatabase();
+    const links = [];
+
+    try {
+      let currentPage = 1;
+      let hasNextPage = true;
+      const pageUrl = this.buildPageUrl(currentPage, query);
+
+      if (!this.page) {
+        throw new Error('Page not initialized');
+      }
+
+      await this.page.goto(pageUrl, {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
+      });
+
+      while (hasNextPage) {
+        console.log(`Scraping page ${currentPage}: ${this.page.url()}`);
+
+        // Wait for the page to load properly (specific to each scraper)
+        await this.waitForPageLoad();
+
+        const pageHtml = await this.page.content();
+        const companyLinks = this.extractCompanyLinks(pageHtml);
+        links.push(...companyLinks);
+
+        // Check for next page
+        hasNextPage = await this.checkNextPage();
+
+        if (hasNextPage) {
+          try {
+            await this.goToNextPage();
+            currentPage++;
+
+            // Optional delay between pages
+            await this.delay(1000);
+          } catch (navigationError) {
+            console.error('Navigation error:', navigationError);
+            hasNextPage = false;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Scraping error:', error);
+    } finally {
+      await this.closeBrowser();
+    }
+    return links;
+  }
+
   // Main scrape method
   async scrape(searchQuery?: string): Promise<any> {
     await this.initializeBrowser();
     await this.init();
     await this.loadDatabase();
+    const links = [];
 
     try {
       let currentPage = 1;
@@ -288,6 +208,7 @@ export abstract class BaseScraper {
         const companyLinks = this.extractCompanyLinks(pageHtml);
 
         console.log(`Found ${companyLinks.length} company links on page ${currentPage}`);
+        links.push(...companyLinks);
 
         for (const link of companyLinks) {
           try {
@@ -296,13 +217,9 @@ export abstract class BaseScraper {
               console.log(`Business ${link} already exists in database, skipping.`);
               continue;
             }
-
             const businessDetails = await this.scrapeBusinessDetails(link);
-            this.businesses[link] = businessDetails;
-
             // Save to database
             await this.saveToDatabase(businessDetails);
-
             // Small delay between requests
             await this.delay(1000);
           } catch (error) {
@@ -319,7 +236,7 @@ export abstract class BaseScraper {
             currentPage++;
 
             // Optional delay between pages
-            await this.delay(2000);
+            await this.delay(1000);
           } catch (navigationError) {
             console.error('Navigation error:', navigationError);
             hasNextPage = false;
@@ -331,6 +248,7 @@ export abstract class BaseScraper {
     } finally {
       await this.closeBrowser();
     }
+    return links;
   }
 
   // Method to wait for page elements to load

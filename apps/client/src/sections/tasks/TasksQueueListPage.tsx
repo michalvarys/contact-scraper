@@ -7,7 +7,7 @@ import { ScraperTaskStatus } from "@/types/scraper";
 import Button from "@/components/atoms/Button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/molecules/Dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/molecules/Tabs";
-import TasksTable from "@/components/molecules/TasksTable";
+import TasksTable from "@/sections/tasks/components/TasksTable";
 import CreateTaskForm from "./components/CreateTaskForm";
 
 /**
