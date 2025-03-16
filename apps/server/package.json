@@ -29,9 +29,9 @@
   "devDependencies": {
     "@contact-scraper/api": "workspace:*",
     "@contact-scraper/auth": "workspace:*",
-    "@contact-scraper/db": "workspace:*",
     "@contact-scraper/config-eslint": "workspace:*",
     "@contact-scraper/config-typescript": "workspace:*",
+    "@contact-scraper/db": "workspace:*",
     "@contact-scraper/scrapers": "workspace:*",
     "@eslint/js": "^9.21.0",
     "@types/cors": "^2.8.17",

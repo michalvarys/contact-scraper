@@ -23,9 +23,9 @@
   "devDependencies": {
     "@contact-scraper/config-eslint": "workspace:*",
     "@contact-scraper/config-typescript": "workspace:*",
-    "@contact-scraper/types": "workspace:*",
-    "@contact-scraper/storage": "workspace:*",
     "@contact-scraper/db": "workspace:*",
+    "@contact-scraper/storage": "workspace:*",
+    "@contact-scraper/types": "workspace:*",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.6",
     "@types/puppeteer": "^7.0.4",

@@ -37,8 +37,10 @@ RUN cd packages/database && pnpm db:generate
 
 # Build aplikace
 # Nejprve nainstalujeme globální závislosti, které mohou být potřeba pro build
-RUN npm install -g tsup
+# RUN npm install -g tsup
+RUN pnpm i turbo@2.4.4 tsup next -w
 
+# RUN pnpm turbo build
 # Postupný build jednotlivých balíčků
 RUN pnpm --filter "@contact-scraper/types" build && \
     pnpm --filter "@contact-scraper/storage" build && \

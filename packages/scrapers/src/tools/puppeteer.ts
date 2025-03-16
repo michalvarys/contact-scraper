@@ -1,24 +1,25 @@
-import path from 'path';
 import puppeteer, { Browser, Page } from 'puppeteer';
 
-const executablePath = path.join(
-  process.cwd(),
-  'node_modules/puppeteer/.local-chromium/linux-938248/chrome-linux/chrome',
-);
-
-export function launchBrowser(headless: boolean = true) {
+export async function launchBrowser(headless: boolean = true) {
+  // return puppeteer.connect({
+  //   browserWSEndpoint: `ws:puppeteer:3000?token=puppeteer123`
+  // })
+  
   return puppeteer.launch({
     headless: headless ? 'new' : false,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || executablePath,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    ignoreDefaultArgs: ['--disable-extensions'],
     args: [
       '--no-sandbox',
+      // '--disable-extensions',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
       '--single-process',
+      '--no-first-run',
+      '--no-zygote'
     ],
+    protocolTimeout: 120000,
   });
 }

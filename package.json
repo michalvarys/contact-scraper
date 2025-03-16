@@ -34,7 +34,8 @@
     "axios": "^1.8.1",
     "cheerio": "^1.0.0",
     "puppeteer": "^21.0.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "locate-chrome": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",
