@@ -79,32 +79,33 @@ export class GoogleMapsScraper extends BaseScraper {
 
       // Extract business details
       const data = await this.page.evaluate(() => {
-        // Helper to get text content safely
-        const getText = (selector: string): string => {
+        function __name(target: any, value: any) {
+          try {
+            Object.defineProperty(target, 'name', { value, configurable: true });
+          } catch {
+            // ignore if we cannot redefine the name
+          }
+          return target;
+        }
+
+        function getText(selector: string) {
           const element = document.querySelector(selector);
           return element ? element.textContent || '' : '';
-        };
+        }
 
-        // Helper to extract address
-        const getAddress = (): string => {
-          // Look for address in the button that appears when you click to copy it
-          const addressButton = Array.from(document.querySelectorAll('button')).find((btn) => {
+        function getAddress() {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          for (const btn of buttons) {
             const ariaLabel = btn.getAttribute('aria-label');
-            return ariaLabel && ariaLabel.includes('Adresa:');
-          });
-
-          if (addressButton) {
-            return addressButton.getAttribute('aria-label')?.replace('Adresa:', '').trim() || '';
+            if (ariaLabel && ariaLabel.includes('Adresa:')) {
+              return ariaLabel.replace('Adresa:', '').trim();
+            }
           }
-
-          // Fallback: try to find address in other elements
           return '';
-        };
+        }
 
-        // Helper to extract phone
-        const getPhone = (): string | null => {
-          //a[href^="tel:"]
-          const phoneLink =
+        function getPhone() {
+          const directPhone =
             document
               .querySelector('a[href^="tel:"]')
               ?.getAttribute('href')
@@ -112,85 +113,82 @@ export class GoogleMapsScraper extends BaseScraper {
               .trim() ||
             document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() ||
             '';
-
-          if (phoneLink) {
-            return phoneLink;
+          if (directPhone) {
+            return directPhone;
           }
 
-          // Look for phone button
-          const phoneButton = Array.from(document.querySelectorAll('button')).find((btn) => {
-            const ariaLabel = btn.getAttribute('aria-label');
-            return ariaLabel && /Telefon:|Volat/.test(ariaLabel);
-          });
-
-          if (phoneButton) {
-            const ariaLabel = phoneButton.getAttribute('aria-label') || '';
-            const match = ariaLabel.match(/(?:Telefon:|Volat)[:\s]*([+\d\s()-]+)/);
-            return match ? match[1].trim() : null;
-          }
-
-          return null;
-        };
-
-        // Helper to extract website
-        const getWebsite = (): string | null => {
-          // website that doesn't have google in the url
-          const website =
-            document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
-          if (website && !website.includes('google')) {
-            return website;
-          }
-
-          const links = document.querySelectorAll('[role=region] a[href]');
-          for (let i = 0; i < links.length; i++) {
-            const link = links.item(i);
-            const href = link.getAttribute('href')?.split('?').shift();
-            if (
-              href &&
-              !href.includes('google') &&
-              !href.startsWith('/maps') &&
-              !href.startsWith('tel:')
-            ) {
-              return href;
+          const buttons = Array.from(document.querySelectorAll('button'));
+          for (const btn of buttons) {
+            const ariaLabel = btn.getAttribute('aria-label') || '';
+            if (/Telefon:|Volat/.test(ariaLabel)) {
+              const match = ariaLabel.match(/(?:Telefon:|Volat)[:\s]*([+\d\s()-]+)/);
+              if (match) {
+                return match[1].trim();
+              }
             }
           }
 
           return null;
-        };
+        }
 
-        // Helper to extract email
-        const getEmail = (): string | null => {
-          // Look for email in text content
+        function getWebsite() {
+          const directWebsite =
+            document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
+          if (directWebsite && !directWebsite.includes('google')) {
+            return directWebsite;
+          }
+
+          const regions = document.querySelectorAll('[role=region] a[href]');
+          for (let index = 0; index < regions.length; index++) {
+            const anchor = regions.item(index);
+            const hrefValue = anchor.getAttribute('href');
+            if (!hrefValue) continue;
+            const [cleanHref] = hrefValue.split('?');
+            if (
+              cleanHref &&
+              !cleanHref.includes('google') &&
+              !cleanHref.startsWith('/maps') &&
+              !cleanHref.startsWith('tel:')
+            ) {
+              return cleanHref;
+            }
+          }
+
+          return null;
+        }
+
+        function getEmail() {
           const emailRegex = /[\w.-]+@[\w.-]+\.\w+/;
           const allText = document.body.innerText;
           const match = allText.match(emailRegex);
           return match ? match[0] : null;
-        };
+        }
 
-        // Helper to extract rating
-        const getRating = (): string | null => {
+        function getRating() {
           const ratingElement = document.querySelector('[aria-label*="hvězdičkami"]');
-          return ratingElement
-            ? ratingElement.getAttribute('aria-label')?.match(/[\d,\.]+/)?.[0] || null
-            : null;
-        };
+          if (!ratingElement) {
+            return null;
+          }
+          const aria = ratingElement.getAttribute('aria-label') || '';
+          const match = aria.match(/[\d,.]+/);
+          return match ? match[0] : null;
+        }
 
-        // Helper to extract reviews count
-        const getReviewsCount = (): number => {
+        function getReviewsCount() {
           const reviewsText =
             document.querySelector('[aria-label*="recenzí"]')?.getAttribute('aria-label') || '';
           const match = reviewsText.match(/(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
-        };
+        }
 
-        // Helper to extract categories
-        const getCategories = (): string[] => {
-          // Categories are usually in a button near the heading
+        function getCategories() {
           const categoryButton = document.querySelector('button.DkEaL');
-          return categoryButton ? [categoryButton.textContent || ''] : [];
-        };
+          if (categoryButton) {
+            return [categoryButton.textContent || ''];
+          }
+          return [];
+        }
 
-        // Create business object
         return {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           name: getText('h1'),
@@ -206,6 +204,10 @@ export class GoogleMapsScraper extends BaseScraper {
         };
       });
 
+      if (!data.name?.trim()) {
+        throw new Error('Missing business name');
+      }
+
       if (data.website && !data.email) {
         data.email = await getEmailFromWebsite(data.website);
       }
@@ -213,19 +215,19 @@ export class GoogleMapsScraper extends BaseScraper {
       return data;
     } catch (error) {
       console.error(`Error scraping details for ${link}:`, error);
-      // Return minimal business object in case of error
-      return {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name: '',
-        address: '',
-        email: null,
-        phone: null,
-        website: null,
-        link: link,
-        reviewsCount: 0,
-        scrapedAt: new Date().toISOString(),
-      };
+      throw error;
     }
+  }
+
+  public async getBusinessData(link: string): Promise<Business> {
+    await this.initializeBrowser();
+
+    if (!this.page) {
+      throw new Error('Page not initialized');
+    }
+
+    const data = await this.scrapeBusinessDetails(link);
+    return this.taskId ? this.enrichBusinessData(data, link) : data;
   }
 
   /**
@@ -233,7 +235,10 @@ export class GoogleMapsScraper extends BaseScraper {
    * @param query Vyhledávací dotaz
    * @returns Pole odkazů
    */
-  async searchLinks(query: string): Promise<string[]> {
+  async searchLinks(
+    query: string,
+    onBatch?: (links: string[]) => Promise<void> | void,
+  ): Promise<string[]> {
     await this.initializeBrowser();
 
     try {
@@ -259,6 +264,9 @@ export class GoogleMapsScraper extends BaseScraper {
 
       // Collect all Google Maps links
       const mapLinks = await this.collectMapLinks();
+      if (onBatch && mapLinks.length > 0) {
+        await onBatch(mapLinks);
+      }
       console.log(`Found ${mapLinks.length} business links to scrape`);
 
       return mapLinks;
@@ -321,30 +329,27 @@ export class GoogleMapsScraper extends BaseScraper {
 
       // Visit each link and scrape detailed data
       for (const link of mapLinks) {
-        if (!this.mapLinks.has(link)) {
-          this.mapLinks.add(link);
-
-          // Check if already exists in database
-          if (await this.companyExists(link)) {
-            console.log(`Business at ${link} already exists in database, skipping.`);
-            continue;
-          }
-
-          const businessDetails = await this.scrapeBusinessDetails(link);
-          if (businessDetails && businessDetails.name) {
-            await this.saveToDatabase(businessDetails);
-            results.push(businessDetails);
-          }
-
-          // Add a small delay to avoid overwhelming the server
-          await this.delay(1500);
+        if (this.mapLinks.has(link)) {
+          continue;
         }
+
+        this.mapLinks.add(link);
+
+        try {
+          const businessDetails = await this.getBusinessData(link);
+          results.push(businessDetails);
+        } catch (scrapeError) {
+          console.error(`Failed to process Google Maps link ${link}:`, scrapeError);
+        }
+
+        // Add a small delay to avoid overwhelming the server
+        await this.delay(1500);
       }
 
       // For backwards compatibility, also collect data from the current page
       const businesses = await this.page.evaluate(() => {
         const items = document.querySelectorAll('[role="article"]');
-        const data: any[] = [];
+        const data: Business[] = [];
 
         items.forEach((item) => {
           try {
@@ -379,8 +384,8 @@ export class GoogleMapsScraper extends BaseScraper {
                 phone,
                 website,
                 rating,
-                reviewsCount,
-                reviews,
+                reviewsCount: Number(reviewsCount),
+                // reviews,
                 email: null,
                 link: window.location.href,
                 scrapedAt: new Date().toISOString(),
@@ -396,10 +401,12 @@ export class GoogleMapsScraper extends BaseScraper {
 
       // Save businesses from listing page and add to results
       for (const business of businesses) {
-        if (!(await this.companyExists(business.link))) {
-          await this.saveToDatabase(business);
-          results.push(business);
+        if (!business.name?.trim() || !business.address?.trim()) {
+          console.warn(`Skipping business with missing required fields: ${business.link}`);
+          continue;
         }
+
+        results.push(business as Business);
       }
 
       return results;

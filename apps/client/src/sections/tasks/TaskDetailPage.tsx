@@ -44,7 +44,11 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
         onAddLinkSubmit,
         processLink,
         isProcessingLink,
-        isAddingLink
+        isAddingLink,
+        rescrapMissingCompanyLinks,
+        isRescrapingMissingLinks,
+        restartFailedLinks,
+        isRestartingFailedLinks
     } = useTaskLinks(taskId);
 
     const { logs } = useTaskLogs(taskId);
@@ -111,6 +115,10 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
                         isAddingLink={isAddingLink}
                         processLink={processLink}
                         isProcessingLink={isProcessingLink}
+                        onBulkRescrape={rescrapMissingCompanyLinks}
+                        isBulkRescraping={isRescrapingMissingLinks}
+                        onRestartFailed={restartFailedLinks}
+                        isRestartingFailed={isRestartingFailedLinks}
                     />
                 </TabsContent>
 

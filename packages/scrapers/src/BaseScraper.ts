@@ -112,11 +112,15 @@ export abstract class BaseScraper {
     return !!existingCompany;
   }
 
-  async searchLinks(query: string): Promise<string[]> {
+  async searchLinks(
+    query: string,
+    onBatch?: (links: string[]) => Promise<void> | void,
+  ): Promise<string[]> {
     await this.initializeBrowser();
     await this.init();
     await this.loadDatabase();
-    const links = [];
+    const links: string[] = [];
+    const seen = new Set<string>();
 
     try {
       let currentPage = 1;
@@ -140,7 +144,19 @@ export abstract class BaseScraper {
 
         const pageHtml = await this.page.content();
         const companyLinks = this.extractCompanyLinks(pageHtml);
-        links.push(...companyLinks);
+
+        const newLinks: string[] = [];
+        for (const link of companyLinks) {
+          if (!seen.has(link)) {
+            seen.add(link);
+            links.push(link);
+            newLinks.push(link);
+          }
+        }
+
+        if (newLinks.length > 0 && onBatch) {
+          await onBatch(newLinks);
+        }
 
         // Check for next page
         hasNextPage = await this.checkNextPage();

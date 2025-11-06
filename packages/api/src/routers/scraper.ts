@@ -10,7 +10,7 @@ export { ScraperTaskStatus, ScrapedLinkStatus };
 
 export const scraperRouter = router({
   getScraperTypes: publicProcedure.query(async () => {
-    return ['GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper'];
+    return ['GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper', 'ZlateStrankyScraper'];
   }),
 
   getEmailFromWebsite: publicProcedure

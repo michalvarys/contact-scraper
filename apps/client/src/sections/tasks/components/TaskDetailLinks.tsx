@@ -15,7 +15,7 @@ import {
     TableRow
 } from '@/components/atoms/Table';
 import Button from '@/components/atoms/Button';
-import { Loader2, Play, Plus, X, Eye, Filter } from 'lucide-react';
+import { Loader2, Play, Plus, X, Eye, Filter, RefreshCw, RotateCcw } from 'lucide-react';
 import { ScraperTask, ScrapedLinkStatus } from '@/types/scraper';
 import TaskStatusBadge from '@/sections/tasks/components/TaskStatusBadge';
 import { formatDate } from '../utils/date';
@@ -35,6 +35,10 @@ interface TaskDetailLinksProps {
     isAddingLink: boolean;
     processLink: (link: string) => void;
     isProcessingLink: boolean;
+    onBulkRescrape: () => void | Promise<void>;
+    isBulkRescraping: boolean;
+    onRestartFailed: () => void | Promise<void>;
+    isRestartingFailed: boolean;
 }
 
 export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
@@ -47,6 +51,10 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
     isAddingLink,
     processLink,
     isProcessingLink,
+    onBulkRescrape,
+    isBulkRescraping,
+    onRestartFailed,
+    isRestartingFailed,
 }) => {
     // Stav pro sledování vybraného linku pro zobrazení dat
     const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
@@ -84,6 +92,27 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
         { id: ScrapedLinkStatus.SKIPPED, value: ScrapedLinkStatus.SKIPPED, label: 'Přeskočené' },
     ], []);
 
+    const processedWithoutCompanyCount = useMemo(() => {
+        if (!links || links.length === 0) {
+            return 0;
+        }
+
+        return links.filter(
+            (link) => link.status === ScrapedLinkStatus.PROCESSED && !link.company,
+        ).length;
+    }, [links]);
+
+    const canBulkRescrape = processedWithoutCompanyCount > 0;
+    const failedCount = useMemo(() => {
+        if (!links || links.length === 0) {
+            return 0;
+        }
+
+        return links.filter((link) => link.status === ScrapedLinkStatus.FAILED).length;
+    }, [links]);
+
+    const canRestartFailed = failedCount > 0;
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -94,6 +123,52 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
                     </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => onBulkRescrape()}
+                        disabled={!canBulkRescrape || isBulkRescraping}
+                    >
+                        {isBulkRescraping ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Znovu spouštím...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Znovu spustit scrapování
+                            </>
+                        )}
+                        {canBulkRescrape && !isBulkRescraping && (
+                            <span className="ml-2 text-sm text-muted-foreground">
+                                ({processedWithoutCompanyCount})
+                            </span>
+                        )}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => onRestartFailed()}
+                        disabled={!canRestartFailed || isRestartingFailed}
+                    >
+                        {isRestartingFailed ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Restartuji...
+                            </>
+                        ) : (
+                            <>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Restartovat selhané
+                            </>
+                        )}
+                        {canRestartFailed && !isRestartingFailed && (
+                            <span className="ml-2 text-sm text-muted-foreground">
+                                ({failedCount})
+                            </span>
+                        )}
+                    </Button>
 
                     <Button
                         variant="outline"

@@ -12,8 +12,8 @@ export function createFilter(
   // Filtrování podle klíčových slov (v názvu nebo adrese)
   if (query.keyword) {
     conditions.push(
-      { name: { contains: query.keyword } },
-      { address: { contains: query.keyword } },
+      { name: { contains: query.keyword, mode: 'insensitive' } },
+      { address: { contains: query.keyword, mode: 'insensitive' } },
     );
   }
 
@@ -23,6 +23,7 @@ export function createFilter(
       some: {
         name: {
           contains: query.category,
+          mode: 'insensitive',
         },
       },
     };

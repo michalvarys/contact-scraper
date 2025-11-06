@@ -6,6 +6,7 @@ export { prisma as mockPrisma } from './tools/mockDb';
 // Re-export specific scrapers
 export { GoogleMapsScraper } from './GoogleMapsScraper';
 export { FirmyCzScraper } from './FirmyCzScraper';
+export { ZlateStrankyScraper } from './ZlateStrankyScraper';
 
 // Example usage
 export { main as runQueueExample } from './examples/queue-example';

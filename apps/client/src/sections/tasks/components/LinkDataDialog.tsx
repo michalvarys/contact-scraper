@@ -191,26 +191,22 @@ export const LinkDataDialog: React.FC<LinkDataDialogProps> = ({ linkId, isOpen, 
                                     <p className="text-yellow-800">
                                         Pro tento odkaz nebyla nalezena žádná scrapnutá data firmy.
                                     </p>
+                                    <div className="flex justify-center">
+                                        <Button
+                                            variant="outline"
+                                            onClick={rescrapLink}
+                                            disabled={isRescrapingLink}
+                                            className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300"
+                                        >
+                                            {isRescrapingLink ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                            )}
+                                            Znovu spustit scrapování
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Tlačítko pro znovuspuštění scrapování, pokud je link PROCESSED */}
-                        {linkData.link.status === 'PROCESSED' && (
-                            <div className="flex justify-center">
-                                <Button
-                                    variant="outline"
-                                    onClick={rescrapLink}
-                                    disabled={isRescrapingLink}
-                                    className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300"
-                                >
-                                    {isRescrapingLink ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                    )}
-                                    Znovu spustit scrapování
-                                </Button>
                             </div>
                         )}
                     </div>

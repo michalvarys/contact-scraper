@@ -6,7 +6,10 @@ export class AiGoogleMapsScraper extends BaseScraper {
     super(config);
   }
 
-  public async searchLinks(query: string): Promise<string[]> {
+  public async searchLinks(
+    query: string,
+    onBatch?: (links: string[]) => Promise<void> | void,
+  ): Promise<string[]> {
     if (!this.page) throw new Error('Page not initialized');
 
     // Navigace na Google Maps
@@ -35,8 +38,12 @@ export class AiGoogleMapsScraper extends BaseScraper {
       return results.map((a) => (a as HTMLAnchorElement).href);
     });
 
-    console.log(`Found ${links.length} links on Google Maps for query: ${query}`);
-    return [...new Set(links)]; // Odstranění duplicit
+    const uniqueLinks = [...new Set(links)];
+    console.log(`Found ${uniqueLinks.length} links on Google Maps for query: ${query}`);
+    if (onBatch && uniqueLinks.length > 0) {
+      await onBatch(uniqueLinks);
+    }
+    return uniqueLinks; // Odstranění duplicit
   }
 
   public async scrapeLink(link: string): Promise<BaseBusinessData> {

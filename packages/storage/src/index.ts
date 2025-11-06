@@ -1,19 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
+import { ReadStream, createReadStream } from 'fs';
 
-export interface SupabaseStorageConfig {
-  supabaseUrl: string;
-  supabaseKey: string;
-  bucketName: string;
+export interface LocalStorageConfig {
+  /**
+   * Cesta ke kořenové složce, kam se budou soubory ukládat
+   */
+  baseDir: string;
+  /**
+   * Veřejná URL cesta (např. `/storage`), která se vrací klientovi
+   */
+  publicUrl?: string;
 }
 
 export interface UploadFileOptions {
   folderPath?: string;
   fileName?: string;
   contentType?: string;
-  metadata?: Record<string, string>;
-  cacheControl?: string;
 }
 
 export interface FileInfo {
@@ -25,198 +30,271 @@ export interface FileInfo {
   uploadedAt: Date;
 }
 
-export class SupabaseStorage {
-  private supabaseClient;
-  private bucketName: string;
+type BlobLike = { arrayBuffer: () => Promise<ArrayBuffer> };
+type FileLike = Buffer | Uint8Array | BlobLike;
 
-  constructor(config: SupabaseStorageConfig) {
-    this.supabaseClient = createClient(config.supabaseUrl, config.supabaseKey);
-    this.bucketName = config.bucketName;
+/**
+ * Jednoduchá implementace ukládání souborů na lokální disk.
+ */
+export class LocalStorage {
+  private readonly baseDir: string;
+  private readonly publicUrl: string;
+
+  constructor(config: LocalStorageConfig) {
+    this.baseDir = this.resolveBaseDir(config.baseDir);
+    this.publicUrl = (config.publicUrl || '/storage').replace(/\/+$/, '');
   }
 
   /**
-   * Inicializuje bucket - vytvoří ho, pokud neexistuje
+   * Zajistí, že základní složka existuje.
    */
-  async initBucket(isPublic: boolean = true): Promise<void> {
-    const { error } = await this.supabaseClient.storage.getBucket(this.bucketName);
-
-    if (error && error.message.includes('The resource was not found')) {
-      const { error: createError } = await this.supabaseClient.storage.createBucket(
-        this.bucketName,
-        { public: isPublic },
-      );
-
-      if (createError) {
-        throw new Error(`Chyba při vytváření bucketu: ${createError.message}`);
-      }
-    } else if (error) {
-      throw new Error(`Chyba při kontrole bucketu: ${error.message}`);
-    }
+  async ensureBaseDir(): Promise<void> {
+    await fsPromises.mkdir(this.baseDir, { recursive: true });
   }
 
   /**
-   * Nahraje soubor do S3 bucketu a vrátí informace o nahraném souboru
+   * Nahraje soubor na disk a vrátí informace o uloženém souboru.
    */
-  async uploadFile(file: Buffer | Blob | File, options: UploadFileOptions = {}): Promise<FileInfo> {
-    const {
-      folderPath = '',
-      fileName = uuidv4(),
-      contentType,
-      metadata,
-      cacheControl = '3600',
-    } = options;
+  async uploadFile(file: FileLike, options: UploadFileOptions = {}): Promise<FileInfo> {
+    const folder = options.folderPath ? this.sanitizeRelativePath(options.folderPath) : '';
+    const fileName = options.fileName || randomUUID();
+    const normalizedFileName = this.sanitizeFileName(fileName);
+    const relativePath = path.posix.join(folder, normalizedFileName);
+    const absolutePath = this.resolveAbsolutePath(relativePath);
 
-    const filePath = path.join(folderPath, fileName).replace(/\\/g, '/');
+    await fsPromises.mkdir(path.dirname(absolutePath), { recursive: true });
 
-    const { data, error } = await this.supabaseClient.storage
-      .from(this.bucketName)
-      .upload(filePath, file, {
-        contentType,
-        cacheControl,
-        upsert: true,
-        ...(metadata ? { metadata } : {}),
-      });
+    const buffer = await this.toBuffer(file);
+    await fsPromises.writeFile(absolutePath, buffer);
 
-    if (error) {
-      throw new Error(`Chyba při nahrávání souboru: ${error.message}`);
-    }
-
-    const { data: publicUrl } = this.supabaseClient.storage
-      .from(this.bucketName)
-      .getPublicUrl(filePath);
+    const stats = await fsPromises.stat(absolutePath);
+    const fileType = options.contentType || this.detectMimeType(relativePath);
 
     return {
-      url: publicUrl.publicUrl,
-      path: filePath,
-      id: data.id || fileName,
-      size: 0,
-      fileType: contentType || 'application/octet-stream',
-      uploadedAt: new Date(),
+      url: this.buildPublicUrl(relativePath),
+      path: relativePath,
+      id: normalizedFileName,
+      size: stats.size,
+      fileType,
+      uploadedAt: stats.mtime,
     };
   }
 
   /**
-   * Nahraje obrázek z URL přímo do S3 bucketu
+   * Stáhne soubor z URL a uloží ho na disk.
    */
-  async uploadFromUrl(imageUrl: string, options: UploadFileOptions = {}): Promise<FileInfo> {
-    try {
-      const response = await fetch(imageUrl);
+  async uploadFromUrl(url: string, options: UploadFileOptions = {}): Promise<FileInfo> {
+    const response = await fetch(url);
 
-      if (!response.ok) {
-        throw new Error(`Chyba při stahování obrázku: ${response.statusText}`);
-      }
-
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
-      const buffer = await response.arrayBuffer();
-
-      // Pokud není zadán název souboru, vytvoříme ho z URL a přidáme příponu podle typu
-      if (!options.fileName) {
-        const urlObj = new URL(imageUrl);
-        const urlPath = urlObj.pathname;
-        const extension = path.extname(urlPath) || getExtensionFromContentType(contentType);
-        const basename = path.basename(urlPath, path.extname(urlPath)) || uuidv4();
-        options.fileName = `${basename}${extension}`;
-      }
-
-      // FIXME: špatný formát
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      return this.uploadFile(new Uint8Array(buffer), { ...options, contentType });
-    } catch (error: any) {
-      throw new Error(`Chyba při nahrávání z URL: ${error.message}`);
+    if (!response.ok) {
+      throw new Error(`Chyba při stahování souboru z ${url}: ${response.status} ${response.statusText}`);
     }
+
+    const contentType = response.headers.get('content-type') || undefined;
+    const arrayBuffer = await response.arrayBuffer();
+
+    if (!options.fileName) {
+      const inferredName = this.inferFileNameFromUrl(url, contentType);
+      options.fileName = inferredName;
+    }
+
+    return this.uploadFile(Buffer.from(arrayBuffer), {
+      ...options,
+      contentType,
+    });
   }
 
   /**
-   * Získá informace o souboru
+   * Vrátí informace o souboru, pokud existuje.
    */
-  async getFileInfo(filePath: string): Promise<FileInfo | null> {
-    const { error } = await this.supabaseClient.storage.from(this.bucketName).download(filePath);
+  async getFileInfo(relativePath: string): Promise<FileInfo | null> {
+    const sanitized = this.sanitizeRelativePath(relativePath);
+    const absolutePath = this.resolveAbsolutePath(sanitized);
 
-    if (error) {
-      if (error.message.includes('The resource was not found')) {
+    try {
+      const stats = await fsPromises.stat(absolutePath);
+      const fileType = this.detectMimeType(sanitized);
+
+      return {
+        url: this.buildPublicUrl(sanitized),
+        path: sanitized,
+        id: path.posix.basename(sanitized),
+        size: stats.size,
+        fileType,
+        uploadedAt: stats.mtime,
+      };
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
         return null;
       }
-      throw new Error(`Chyba při získávání souboru: ${error.message}`);
+      throw error;
     }
-
-    const { data: fileData } = await this.supabaseClient.storage
-      .from(this.bucketName)
-      .list(path.dirname(filePath), {
-        search: path.basename(filePath),
-      });
-
-    const file = fileData?.[0];
-
-    if (!file) {
-      return null;
-    }
-
-    const { data: publicUrl } = this.supabaseClient.storage
-      .from(this.bucketName)
-      .getPublicUrl(filePath);
-
-    return {
-      url: publicUrl.publicUrl,
-      path: filePath,
-      id: file.id,
-      size: file.metadata?.size || 0,
-      fileType: file.metadata?.mimetype || 'application/octet-stream',
-      uploadedAt: new Date(file.created_at),
-    };
   }
 
   /**
-   * Vymaže soubor z bucketu
+   * Odstraní konkrétní soubor.
    */
-  async deleteFile(filePath: string): Promise<boolean> {
-    const { error } = await this.supabaseClient.storage.from(this.bucketName).remove([filePath]);
+  async deleteFile(relativePath: string): Promise<boolean> {
+    const sanitized = this.sanitizeRelativePath(relativePath);
+    const absolutePath = this.resolveAbsolutePath(sanitized);
 
-    if (error) {
-      throw new Error(`Chyba při mazání souboru: ${error.message}`);
+    try {
+      await fsPromises.unlink(absolutePath);
+      return true;
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        return false;
+      }
+      throw error;
     }
-
-    return true;
   }
 
   /**
-   * Vymaže soubory v daném adresáři
+   * Odstraní celou složku se soubory.
    */
   async deleteFolder(folderPath: string): Promise<boolean> {
-    const { data, error } = await this.supabaseClient.storage
-      .from(this.bucketName)
-      .list(folderPath);
+    const sanitized = this.sanitizeRelativePath(folderPath);
+    const absolutePath = this.resolveAbsolutePath(sanitized);
 
-    if (error) {
-      throw new Error(`Chyba při výpisu složky: ${error.message}`);
-    }
-
-    const filePaths = data.map((file) => `${folderPath}/${file.name}`);
-
-    if (filePaths.length > 0) {
-      const { error: deleteError } = await this.supabaseClient.storage
-        .from(this.bucketName)
-        .remove(filePaths);
-
-      if (deleteError) {
-        throw new Error(`Chyba při mazání souborů: ${deleteError.message}`);
+    try {
+      await fsPromises.rm(absolutePath, { recursive: true, force: true });
+      return true;
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        return false;
       }
+      throw error;
+    }
+  }
+
+  /**
+   * Vrátí ReadStream pro daný soubor.
+   */
+  createReadStream(relativePath: string): ReadStream {
+    const sanitized = this.sanitizeRelativePath(relativePath);
+    const absolutePath = this.resolveAbsolutePath(sanitized);
+
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error('Soubor nebyl nalezen');
     }
 
-    return true;
+    return createReadStream(absolutePath);
+  }
+
+  /**
+   * Vrátí absolutní cestu k souboru (bez kontroly existence).
+   */
+  getAbsolutePath(relativePath: string): string {
+    const sanitized = this.sanitizeRelativePath(relativePath);
+    return this.resolveAbsolutePath(sanitized);
+  }
+
+  /**
+   * Vrátí MIME typ odvozený z přípony souboru.
+   */
+  detectMimeType(relativePath: string): string {
+    const extension = path.posix.extname(relativePath).toLowerCase();
+    return extensionToMime[extension] || 'application/octet-stream';
+  }
+
+  /**
+   * Pomocná metoda pro vytvoření veřejné URL.
+   */
+  buildPublicUrl(relativePath: string): string {
+    const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
+    return `${this.publicUrl}/${encodedPath}`.replace(/\/+/g, '/');
+  }
+
+  /**
+   * Vytvoří instanci LocalStorage na základě prostředí.
+   */
+  static fromEnv(overrides: Partial<LocalStorageConfig> = {}): LocalStorage {
+    const baseDir = overrides.baseDir || process.env.STORAGE_BASE_DIR || '../storage-data';
+    const publicUrl = overrides.publicUrl || process.env.STORAGE_PUBLIC_URL || '/storage';
+
+    const resolvedBaseDir = path.isAbsolute(baseDir)
+      ? baseDir
+      : path.resolve(process.cwd(), baseDir);
+
+    return new LocalStorage({
+      baseDir: resolvedBaseDir,
+      publicUrl,
+    });
+  }
+
+  private resolveBaseDir(baseDir: string): string {
+    if (path.isAbsolute(baseDir)) {
+      return baseDir;
+    }
+    return path.resolve(process.cwd(), baseDir);
+  }
+
+  private resolveAbsolutePath(relativePath: string): string {
+    return path.join(this.baseDir, relativePath);
+  }
+
+  private sanitizeRelativePath(p: string): string {
+    const sanitizedInput = p.replace(/\\/g, '/');
+    const normalized = path.posix.normalize(sanitizedInput).replace(/^(\.\.\/)+/, '');
+    return normalized.replace(/^\//, '');
+  }
+
+  private sanitizeFileName(name: string): string {
+    const baseName = path.posix.basename(name);
+    return baseName.replace(/[^\w.\-]/g, '_');
+  }
+
+  private async toBuffer(file: FileLike): Promise<Buffer> {
+    if (Buffer.isBuffer(file)) {
+      return file;
+    }
+
+    if (file instanceof Uint8Array) {
+      return Buffer.from(file);
+    }
+
+    if (file && typeof (file as BlobLike).arrayBuffer === 'function') {
+      const arrayBuffer = await (file as BlobLike).arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    }
+
+    throw new Error('Nepodporovaný typ souboru pro nahrání');
+  }
+
+  private inferFileNameFromUrl(fileUrl: string, contentType?: string | null): string {
+    try {
+      const parsed = new URL(fileUrl);
+      const fileName = path.posix.basename(parsed.pathname);
+
+      if (fileName && fileName !== '/') {
+        return fileName;
+      }
+    } catch (error) {
+      // Ignorujeme chybu, použijeme fallback níže
+    }
+
+    const extension = contentType ? mimeToExtension[contentType] : '';
+    return `${randomUUID()}${extension}`;
   }
 }
 
-// Pomocná funkce pro získání přípony souboru z MIME typu
-function getExtensionFromContentType(contentType: string): string {
-  const mimeToExt: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'image/svg+xml': '.svg',
-    'application/pdf': '.pdf',
-  };
+const mimeToExtension: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+  'image/avif': '.avif',
+  'application/pdf': '.pdf',
+  'application/json': '.json',
+  'text/plain': '.txt',
+};
 
-  return mimeToExt[contentType] || '';
-}
+const extensionToMime: Record<string, string> = Object.entries(mimeToExtension).reduce<
+  Record<string, string>
+>((acc, [mime, ext]) => {
+  acc[ext] = mime;
+  return acc;
+}, {});
+
+extensionToMime['.jpeg'] = 'image/jpeg';

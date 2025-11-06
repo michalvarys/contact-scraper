@@ -1,11 +1,5 @@
 /**
- * Příklad použití knihovny pro manipulaci s S3 buckets od Supabase
- *
- * POZNÁMKA: Tento příklad vyžaduje nastavené proměnné prostředí:
- * - SUPABASE_URL
- * - SUPABASE_SERVICE_KEY
- *
- * Tyto proměnné by měly být nastaveny v souboru .env v adresáři packages/scrapers
+ * Příklad použití lokálního úložiště souborů
  */
 import { BusinessImage } from '@contact-scraper/types';
 import {
@@ -21,24 +15,11 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import dotenv from 'dotenv';
 
-// Načtení proměnných prostředí
 dotenv.config();
-
-// Kontrola, zda jsou nastaveny potřebné proměnné prostředí
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-  console.error('CHYBA: Nejsou nastaveny potřebné proměnné prostředí!');
-  console.error(
-    'Ujistěte se, že máte v adresáři packages/scrapers soubor .env s následujícími proměnnými:',
-  );
-  console.error('SUPABASE_URL=https://your-project.supabase.co');
-  console.error('SUPABASE_SERVICE_KEY=your-service-key');
-  console.error('\nPříklad byl ukončen.');
-  process.exit(1);
-}
 
 async function main() {
   try {
-    console.log('Spouštím příklad použití Supabase Storage...');
+    console.log('Spouštím příklad použití lokálního úložiště...');
 
     // ID firmy pro testování
     const businessId = 'test-business-123';
@@ -65,16 +46,12 @@ async function main() {
       // Načtení testovacího obrázku
       const imageBuffer = await fs.readFile(testImagePath);
 
-      // Nahrání obrázku do Supabase Storage
+      // Nahrání obrázku do lokálního úložiště
       const uploadedImage: BusinessImage = await uploadFile(imageBuffer, {
         folderPath: `websites/${businessId}/images`,
         fileName: 'test-image.png',
         imageType: 'logo',
         contentType: 'image/png',
-        metadata: {
-          businessId,
-          description: 'Logo firmy',
-        },
       });
 
       console.log('Obrázek úspěšně nahrán:', uploadedImage);
@@ -86,11 +63,6 @@ async function main() {
         folderPath: `businesses/${businessId}/images`,
         fileName: 'image-from-url.jpg',
         imageType: 'photo',
-        metadata: {
-          businessId,
-          description: 'Fotka firmy z URL',
-          source: imageUrl,
-        },
       });
 
       console.log('Obrázek z URL úspěšně nahrán:', uploadedImageFromUrl);

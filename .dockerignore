@@ -33,6 +33,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+.data
 
 # Ostatní
 .DS_Store

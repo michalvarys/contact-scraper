@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { ScrapedLinkStatus } from '@/types/scraper';
 
 // Schéma pro validaci formuláře přidání odkazu
 const addLinkFormSchema = z.object({
@@ -15,6 +16,8 @@ export type AddLinkFormValues = z.infer<typeof addLinkFormSchema>;
 export const useTaskLinks = (taskId: string) => {
   const { toast } = useToast();
   const [showAddLinkForm, setShowAddLinkForm] = useState(false);
+  const [isRescrapingMissingLinks, setIsRescrapingMissingLinks] = useState(false);
+  const [isRestartingFailedLinks, setIsRestartingFailedLinks] = useState(false);
 
   // Získání odkazů úlohy
   const { data: links, refetch } = trpc.scraper.getTaskLinks.useQuery({ taskId });
@@ -71,6 +74,8 @@ export const useTaskLinks = (taskId: string) => {
     },
   });
 
+  const rescrapLinkMutation = trpc.scraper.rescrapLink.useMutation();
+
   // Funkce pro zpracování odkazu
   const processLink = (link: string) => {
     processLinkMutation.mutate({
@@ -92,6 +97,137 @@ export const useTaskLinks = (taskId: string) => {
     setShowAddLinkForm(!showAddLinkForm);
   };
 
+  const rescrapMissingCompanyLinks = async () => {
+    if (!links || links.length === 0) {
+      toast({
+        title: 'Žádné odkazy k rescrapování',
+        description: 'Pro tuto úlohu zatím nejsou dostupné žádné odkazy.',
+        duration: 4000,
+      });
+      return;
+    }
+
+    const targets = links.filter(
+      (link) => link.status === ScrapedLinkStatus.PROCESSED && !link.company,
+    );
+
+    if (targets.length === 0) {
+      toast({
+        title: 'Všechno hotovo',
+        description: 'Všechny zpracované odkazy už mají přiřazená data.',
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsRescrapingMissingLinks(true);
+
+    const failed: { id: string; message: string }[] = [];
+
+    try {
+      for (const link of targets) {
+        try {
+          await rescrapLinkMutation.mutateAsync({ linkId: link.id });
+        } catch (error: any) {
+          const message = error instanceof Error ? error.message : error?.message || 'Neznámá chyba';
+          failed.push({
+            id: link.id,
+            message,
+          });
+        }
+      }
+
+      await refetch();
+
+      if (failed.length === 0) {
+        toast({
+          title: 'Scrapování znovu spuštěno',
+          description: `${targets.length} odkazů bylo znovu zařazeno do fronty ke zpracování.`,
+          variant: 'success',
+          duration: 5000,
+        });
+      } else if (failed.length === targets.length) {
+        toast({
+          title: 'Scrapování se nepodařilo znovu spustit',
+          description: 'Žádný z vybraných odkazů nebyl úspěšně znovu zpracován.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Scrapování částečně znovu spuštěno',
+          description: `Úspěšně znovu spuštěno: ${targets.length - failed.length}, neúspěšné: ${failed.length}.`,
+          duration: 5000,
+        });
+      }
+    } finally {
+      setIsRescrapingMissingLinks(false);
+    }
+  };
+
+  const restartFailedLinks = async () => {
+    if (!links || links.length === 0) {
+      toast({
+        title: 'Žádné odkazy k restartu',
+        description: 'Pro tuto úlohu zatím nejsou dostupné žádné odkazy.',
+        duration: 4000,
+      });
+      return;
+    }
+
+    const targets = links.filter((link) => link.status === ScrapedLinkStatus.FAILED);
+
+    if (targets.length === 0) {
+      toast({
+        title: 'Žádné selhané odkazy',
+        description: 'Všechny odkazy byly zpracovány úspěšně.',
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsRestartingFailedLinks(true);
+
+    const failed: { id: string; message: string }[] = [];
+
+    try {
+      for (const link of targets) {
+        try {
+          await rescrapLinkMutation.mutateAsync({ linkId: link.id });
+        } catch (error: any) {
+          const message = error instanceof Error ? error.message : error?.message || 'Neznámá chyba';
+          failed.push({ id: link.id, message });
+        }
+      }
+
+      await refetch();
+
+      if (failed.length === 0) {
+        toast({
+          title: 'Selhané odkazy restartovány',
+          description: `${targets.length} odkazů bylo znovu zařazeno ke zpracování.`,
+          variant: 'success',
+          duration: 5000,
+        });
+      } else if (failed.length === targets.length) {
+        toast({
+          title: 'Restart selhaných odkazů selhal',
+          description: 'Žádný ze selhaných odkazů se nepodařilo restartovat.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Restart selhaných odkazů částečně úspěšný',
+          description: `Úspěšně restartováno: ${targets.length - failed.length}, neúspěšné: ${failed.length}.`,
+          duration: 5000,
+        });
+      }
+    } finally {
+      setIsRestartingFailedLinks(false);
+    }
+  };
+
   return {
     links,
     addLinkForm,
@@ -101,5 +237,9 @@ export const useTaskLinks = (taskId: string) => {
     processLink,
     isProcessingLink: processLinkMutation.isLoading,
     isAddingLink: addLinkMutation.isLoading,
+    rescrapMissingCompanyLinks,
+    isRescrapingMissingLinks,
+    restartFailedLinks,
+    isRestartingFailedLinks,
   };
 };

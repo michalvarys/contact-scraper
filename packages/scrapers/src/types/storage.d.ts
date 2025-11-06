@@ -1,16 +1,13 @@
 declare module '@contact-scraper/storage' {
-  export interface SupabaseStorageConfig {
-    supabaseUrl: string;
-    supabaseKey: string;
-    bucketName: string;
+  export interface LocalStorageConfig {
+    baseDir: string;
+    publicUrl?: string;
   }
 
   export interface UploadFileOptions {
     folderPath?: string;
     fileName?: string;
     contentType?: string;
-    metadata?: Record<string, string>;
-    cacheControl?: string;
   }
 
   export interface FileInfo {
@@ -22,10 +19,10 @@ declare module '@contact-scraper/storage' {
     uploadedAt: Date;
   }
 
-  export class SupabaseStorage {
-    constructor(config: SupabaseStorageConfig);
+  export class LocalStorage {
+    constructor(config: LocalStorageConfig);
 
-    initBucket(isPublic?: boolean): Promise<void>;
+    ensureBaseDir(): Promise<void>;
 
     uploadFile(file: Buffer | Blob | File, options?: UploadFileOptions): Promise<FileInfo>;
 
@@ -36,5 +33,15 @@ declare module '@contact-scraper/storage' {
     deleteFile(filePath: string): Promise<boolean>;
 
     deleteFolder(folderPath: string): Promise<boolean>;
+
+    createReadStream(relativePath: string): NodeJS.ReadableStream;
+
+    getAbsolutePath(relativePath: string): string;
+
+    detectMimeType(relativePath: string): string;
+
+    buildPublicUrl(relativePath: string): string;
+
+    static fromEnv(overrides?: Partial<LocalStorageConfig>): LocalStorage;
   }
 }

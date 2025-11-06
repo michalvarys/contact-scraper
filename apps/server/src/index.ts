@@ -8,6 +8,8 @@ import { appRouter } from '@contact-scraper/api/routers';
 import { openApiDocument } from '@contact-scraper/api/openapi';
 import { scraperProviders } from '@contact-scraper/scrapers';
 import queueService from '@contact-scraper/scrapers/src/services/ScraperQueueService';
+import odooRoutes from './odoo/routes';
+import storageRouter from './routes/storage';
 
 dotenv.config();
 
@@ -19,6 +21,7 @@ queueService.setMaxConcurrentTasks(3);
 queueService.registerScraperProvider('AiGoogleMapsScraper', scraperProviders.AiGoogleMapsScraper);
 queueService.registerScraperProvider('FirmyCzScraper', scraperProviders.FirmyCzScraper);
 queueService.registerScraperProvider('GoogleMapsScraper', scraperProviders.GoogleMapsScraper);
+queueService.registerScraperProvider('ZlateStrankyScraper', scraperProviders.ZlateStrankyScraper);
 
 // Health check endpoint pro Docker
 app.get('/health', (_req, res) => {
@@ -52,6 +55,7 @@ interface CompanyFilter {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/storage', storageRouter);
 
 // Pomocná funkce pro vytvoření filtru
 function createFilter(query: CompanyQueryParams): CompanyFilter {
@@ -739,6 +743,9 @@ router.get('/queue/tasks/:id/logs', async (req: Request<{ id: string }>, res: Re
 
 // Přidání routeru s prefixem /api
 app.use('/api', router);
+
+// Odoo API routes
+app.use('/api/odoo', odooRoutes);
 
 app.use(
     '/trpc',

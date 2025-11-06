@@ -20,18 +20,19 @@ model User {
 }
 
 model Company {
-  id           String           @id @default(uuid())
-  name         String
-  address      String
-  email        String?
-  phone        String?
-  website      String?
-  categories   Category[]
-  link         String           @unique
-  reviewsCount Int              @default(0)
-  scrapedAt    DateTime
-  metadata     CompanyMetadata?
-  metadataId   String?
+  id            String           @id @default(uuid())
+  name          String
+  address       String
+  email         String?
+  phone         String?
+  website       String?
+  categories    Category[]
+  link          String           @unique
+  reviewsCount  Int              @default(0)
+  scrapedAt     DateTime
+  metadata      CompanyMetadata?
+  metadataId    String?
+  odooPartnerId Int? // Odoo res.partner ID when synced
 }
 
 model CompanyMetadata {

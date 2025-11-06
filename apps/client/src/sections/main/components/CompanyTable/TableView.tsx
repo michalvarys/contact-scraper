@@ -9,6 +9,7 @@ import { TableHeader } from './components/TableHeader';
 import { TableBody } from './components/TableBody';
 import { TableFooter } from './components/TableFooter';
 import { EditBusinessModal } from './components/EditBusinessModal';
+import { OdooBulkActions } from './components/OdooBulkActions';
 import './styles/table.css';
 
 export function TableView() {
@@ -58,8 +59,22 @@ export function TableView() {
         });
     };
 
+    // Get selected row IDs
+    const selectedRows = table.getSelectedRowModel().rows;
+    const selectedCompanyIds = selectedRows.map((row) => row.original.id);
+
+    const handleBulkComplete = () => {
+        table.resetRowSelection();
+    };
+
     return (
         <div className="table-container">
+            {/* Odoo Bulk Actions */}
+            <OdooBulkActions
+                selectedCompanyIds={selectedCompanyIds}
+                onComplete={handleBulkComplete}
+            />
+
             <div className="table-wrapper">
                 {/* Header */}
                 <div className="sticky-header">

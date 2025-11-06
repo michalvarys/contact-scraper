@@ -10,6 +10,7 @@ import { CategorySelect } from '@/components/molecules/CategorySelect';
 import { JSONAccordion } from './JSONAccordion';
 import { ScrapeEmailButton } from './ScrapeEmailButton';
 import { VisitWebsiteButton } from './VisitWebsiteButton';
+import { OdooActions } from './OdooActions';
 
 export interface EditBusinessFormProps {
     /**
@@ -180,6 +181,9 @@ export const EditBusinessForm: React.FC<EditBusinessFormProps> = ({
                 </div>
 
                 <JSONAccordion />
+
+                {/* Odoo Actions Section */}
+                <OdooActions company={business} />
 
                 <div className="flex justify-end gap-2 pt-2">
                     <Button aria-label="cancel" type="button" variant="outline" onClick={onCancel}>

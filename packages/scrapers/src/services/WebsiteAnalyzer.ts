@@ -244,7 +244,7 @@ export class WebsiteAnalyzer {
         // Vytvoření screenshotu
         // const screenshot = await newPage.screenshot({ fullPage: false });
 
-        // Nahrání screenshotu do Supabase Storage
+        // Nahrání screenshotu do lokálního úložiště
         try {
           // const uploadedImage = await uploadScreenshot(screenshot, businessId, {
           //   imageType: 'website-screenshot',

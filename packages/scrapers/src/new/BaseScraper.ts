@@ -44,32 +44,7 @@ export abstract class BaseScraper {
 
   public async init(): Promise<void> {
     this.browser = await launchBrowser(this.config.headless);
-    this.page = await this.browser.newPage();
-
-    // Nastavení viewportu
-    if (this.config.viewport) {
-      await this.page.setViewport(this.config.viewport);
-    }
-
-    // Nastavení user agenta
-    if (this.config.userAgent) {
-      await this.page.setUserAgent(this.config.userAgent);
-    }
-
-    // Nastavení cookies
-    if (this.config.cookies) {
-      await this.page.setCookie(...this.config.cookies);
-    }
-
-    // Nastavení extra HTTP hlaviček
-    if (this.config.headers) {
-      await this.page.setExtraHTTPHeaders(this.config.headers);
-    }
-
-    // Nastavení timeoutu
-    if (this.config.timeout) {
-      this.page.setDefaultTimeout(this.config.timeout);
-    }
+    this.page = await this.createConfiguredPage();
   }
 
   public async close(): Promise<void> {
@@ -83,12 +58,58 @@ export abstract class BaseScraper {
     }
   }
 
+  protected async ensurePage(): Promise<void> {
+    if (this.page && !this.page.isClosed()) {
+      return;
+    }
+
+    if (!this.browser) {
+      await this.init();
+      return;
+    }
+
+    this.page = await this.createConfiguredPage();
+  }
+
+  private async createConfiguredPage(): Promise<Page> {
+    if (!this.browser) {
+      throw new Error('Browser not initialized');
+    }
+
+    const page = await this.browser.newPage();
+
+    if (this.config.viewport) {
+      await page.setViewport(this.config.viewport);
+    }
+
+    if (this.config.userAgent) {
+      await page.setUserAgent(this.config.userAgent);
+    }
+
+    if (this.config.cookies) {
+      await page.setCookie(...this.config.cookies);
+    }
+
+    if (this.config.headers) {
+      await page.setExtraHTTPHeaders(this.config.headers);
+    }
+
+    if (this.config.timeout) {
+      page.setDefaultTimeout(this.config.timeout);
+    }
+
+    return page;
+  }
+
   /**
    * Vyhledá odkazy na stránce podle zadaného dotazu
    * @param query Vyhledávací dotaz
    * @returns Seznam nalezených odkazů
    */
-  public abstract searchLinks(query: string): Promise<string[]>;
+  public abstract searchLinks(
+    query: string,
+    onBatch?: (links: string[]) => Promise<void> | void,
+  ): Promise<string[]>;
 
   /**
    * Získá data o firmě z daného odkazu

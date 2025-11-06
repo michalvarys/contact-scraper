@@ -61,7 +61,13 @@ export class DatabaseManager {
    * @param companyData Data o firmě
    * @returns Uložená data o firmě
    */
-  async saveCompanyData({ websiteData, rating, reviews, ...companyData }: Record<string, any>) {
+  async saveCompanyData({
+    websiteData,
+    rating,
+    reviews,
+    description,
+    ...companyData
+  }: Record<string, any>) {
     try {
       // Uložení kategorií
       const categories = companyData.categories || [];
@@ -106,7 +112,17 @@ export class DatabaseManager {
 
       // Pokud má firma webovou stránku a máme data o ní, uložíme je
       if (websiteData && companyData.website) {
-        await this.saveWebsiteData(companyRecord.id, websiteData, companyData.website);
+        await this.saveWebsiteData(
+          companyRecord.id,
+          {
+            ...websiteData,
+            metadata: {
+              description,
+              ...websiteData.metadata,
+            },
+          },
+          companyData.website,
+        );
       }
 
       console.log(`Firma "${companyData.name}" byla úspěšně uložena.`);

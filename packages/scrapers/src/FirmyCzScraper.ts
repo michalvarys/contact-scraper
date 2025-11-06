@@ -153,7 +153,10 @@ export class FirmyCzScraper extends BaseScraper {
    * @param query Vyhledávací dotaz
    * @returns Pole odkazů
    */
-  async searchLinks(query: string): Promise<string[]> {
+  async searchLinks(
+    query: string,
+    onBatch?: (links: string[]) => Promise<void> | void,
+  ): Promise<string[]> {
     await this.initializeBrowser();
 
     try {
@@ -172,8 +175,24 @@ export class FirmyCzScraper extends BaseScraper {
       const html = await this.page.content();
 
       // Extrakce odkazů na firmy
+      const collectedLinks: string[] = [];
+      const seen = new Set<string>();
+
+      const processBatch = async (batch: string[]) => {
+        const newLinks = batch.filter((link) => !seen.has(link));
+        if (newLinks.length === 0) return;
+        newLinks.forEach((link) => {
+          seen.add(link);
+          collectedLinks.push(link);
+        });
+        if (onBatch) {
+          await onBatch(newLinks);
+        }
+      };
+
       const links = this.extractCompanyLinks(html);
       console.log(`Nalezeno ${links.length} odkazů na firmy na první stránce`);
+      await processBatch(links);
 
       // Kontrola, zda existují další stránky
       let currentPage = 1;
@@ -192,9 +211,7 @@ export class FirmyCzScraper extends BaseScraper {
           // Extrakce odkazů na firmy
           const pageLinks = this.extractCompanyLinks(pageHtml);
           console.log(`Nalezeno ${pageLinks.length} odkazů na firmy na stránce ${currentPage}`);
-
-          // Přidání odkazů do výsledku
-          links.push(...pageLinks);
+          await processBatch(pageLinks);
 
           // Kontrola, zda existuje další stránka
           hasNextPage = await this.checkNextPage();
@@ -204,7 +221,7 @@ export class FirmyCzScraper extends BaseScraper {
         }
       }
 
-      return links;
+      return collectedLinks;
     } catch (error) {
       console.error('Chyba při vyhledávání odkazů:', error);
       return [];

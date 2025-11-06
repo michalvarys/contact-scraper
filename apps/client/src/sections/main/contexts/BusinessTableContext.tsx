@@ -36,6 +36,11 @@ interface BusinessTableContextType {
     selectedRows: Company[];
     // Nová funkce pro aktualizaci konkrétního záznamu v tabulce
     updateRowData: (id: string, updatedData: Partial<Company>) => void;
+    // Modální dialogy pro editaci a mazání
+    editingCompany: Company | null;
+    setEditingCompany: (company: Company | null) => void;
+    deletingCompanyId: string | null;
+    setDeletingCompanyId: (id: string | null) => void;
 }
 
 // Vytvoření kontextu
