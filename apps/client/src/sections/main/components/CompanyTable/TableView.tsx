@@ -96,9 +96,10 @@ export function TableView() {
     });
   };
 
-  // Get selected row IDs
+  // Get selected row IDs and data
   const selectedRows = table.getSelectedRowModel().rows;
   const selectedCompanyIds = selectedRows.map((row) => row.original.id);
+  const selectedCompanies = selectedRows.map((row) => row.original);
 
   const handleBulkComplete = () => {
     table.resetRowSelection();
@@ -107,7 +108,11 @@ export function TableView() {
   return (
     <div className="table-container">
       {/* Odoo Bulk Actions */}
-      <OdooBulkActions selectedCompanyIds={selectedCompanyIds} onComplete={handleBulkComplete} />
+      <OdooBulkActions
+        selectedCompanyIds={selectedCompanyIds}
+        selectedCompanies={selectedCompanies}
+        onComplete={handleBulkComplete}
+      />
 
       <div className="table-wrapper">
         {/* Header */}

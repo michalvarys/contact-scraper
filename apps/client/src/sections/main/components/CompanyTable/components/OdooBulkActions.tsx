@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useOdoo } from '@/hooks/useOdoo';
+import { useExportCSV } from '@/hooks';
 import { Button } from '@/components/atoms/Button';
-import { Loader2, Upload, Plus, ListPlus } from 'lucide-react';
+import { Loader2, Upload, Plus, ListPlus, Download } from 'lucide-react';
+import type { Company } from '@contact-scraper/api/routers';
 
 interface OdooBulkActionsProps {
   selectedCompanyIds: string[];
+  selectedCompanies: Company[];
   onComplete?: () => void;
 }
 
 export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   selectedCompanyIds,
+  selectedCompanies,
   onComplete,
 }) => {
   const {
@@ -21,6 +25,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     createListWithCompanies,
     getMailingLists,
   } = useOdoo();
+  const { exportToCSV } = useExportCSV();
 
   const [mailingLists, setMailingLists] = useState<any[]>([]);
   const [selectedList, setSelectedList] = useState<string>('');
@@ -105,6 +110,16 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     } catch (err: any) {
       console.error('Create list failed:', err);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (selectedCompanies.length === 0) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `export-firmy-${timestamp}.csv`;
+    exportToCSV(selectedCompanies, filename);
+    setShowSuccess(`✓ ${selectedCompanies.length} záznamů exportováno do CSV`);
+    setTimeout(() => setShowSuccess(null), 4000);
   };
 
   if (selectedCompanyIds.length === 0) {
@@ -223,6 +238,17 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
           >
             <ListPlus className="mr-2 h-4 w-4" />
             Vytvořit nový seznam
+          </Button>
+
+          {/* Export to CSV */}
+          <Button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={loading}
+            className="bg-gray-700 hover:bg-gray-800 text-white whitespace-nowrap"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export do CSV
           </Button>
         </div>
       </div>

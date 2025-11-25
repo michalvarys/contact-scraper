@@ -23,7 +23,6 @@
         "lint": {},
         "dev": {
             "dependsOn": [
-                "^db:generate",
                 "^server:prebuild"
             ],
             "cache": false,
