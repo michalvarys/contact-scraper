@@ -19,113 +19,140 @@ export function useOdoo() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiCall = useCallback(async <T = any>(
-    endpoint: string,
-    options?: RequestInit
-  ): Promise<T> => {
-    setLoading(true);
-    setError(null);
+  const apiCall = useCallback(
+    async <T = any>(endpoint: string, options?: RequestInit): Promise<T> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(`/api/odoo${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
-      });
+      try {
+        const response = await fetch(`/api/odoo${endpoint}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers,
+          },
+        });
 
-      const data: OdooResponse<T> = await response.json();
+        const data: OdooResponse<T> = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.message || data.error || 'Operation failed');
+        if (!data.success) {
+          throw new Error(data.message || data.error || 'Operation failed');
+        }
+
+        return data.data as T;
+      } catch (err: any) {
+        const errorMessage = err.message || 'An error occurred';
+        setError(errorMessage);
+        throw new Error(errorMessage);
+      } finally {
+        setLoading(false);
       }
+    },
+    [],
+  );
 
-      return data.data as T;
-    } catch (err: any) {
-      const errorMessage = err.message || 'An error occurred';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const syncCompany = useCallback(
+    async (companyId: string): Promise<number> => {
+      const data = await apiCall<{ odooPartnerId: number }>(`/companies/${companyId}/sync`, {
+        method: 'POST',
+      });
+      return data.odooPartnerId;
+    },
+    [apiCall],
+  );
 
-  const syncCompany = useCallback(async (companyId: string): Promise<number> => {
-    const data = await apiCall<{ odooPartnerId: number }>(
-      `/companies/${companyId}/sync`,
-      { method: 'POST' }
-    );
-    return data.odooPartnerId;
-  }, [apiCall]);
+  const updateCompany = useCallback(
+    async (companyId: string): Promise<boolean> => {
+      const data = await apiCall<{ updated: boolean }>(`/companies/${companyId}/update`, {
+        method: 'PUT',
+      });
+      return data.updated;
+    },
+    [apiCall],
+  );
 
-  const checkSyncStatus = useCallback(async (companyId: string) => {
-    return await apiCall<{ companyId: string; isSynced: boolean; odooPartnerId: number | null }>(
-      `/companies/${companyId}/status`
-    );
-  }, [apiCall]);
+  const checkSyncStatus = useCallback(
+    async (companyId: string) => {
+      return await apiCall<{ companyId: string; isSynced: boolean; odooPartnerId: number | null }>(
+        `/companies/${companyId}/status`,
+      );
+    },
+    [apiCall],
+  );
 
-  const addToMailingList = useCallback(async (
-    companyId: string,
-    mailingListId: number
-  ): Promise<{ subscriptionId: number }> => {
-    return await apiCall(
-      `/companies/${companyId}/add-to-list`,
-      {
+  const addToMailingList = useCallback(
+    async (companyId: string, mailingListId: number): Promise<{ subscriptionId: number }> => {
+      return await apiCall(`/companies/${companyId}/add-to-list`, {
         method: 'POST',
         body: JSON.stringify({ mailingListId }),
-      }
-    );
-  }, [apiCall]);
+      });
+    },
+    [apiCall],
+  );
 
-  const getMailingLists = useCallback(async (activeOnly = true): Promise<MailingList[]> => {
-    return await apiCall(`/mailing-lists?activeOnly=${activeOnly}`);
-  }, [apiCall]);
+  const getMailingLists = useCallback(
+    async (activeOnly = true): Promise<MailingList[]> => {
+      return await apiCall(`/mailing-lists?activeOnly=${activeOnly}`);
+    },
+    [apiCall],
+  );
 
-  const syncBulk = useCallback(async (companyIds: string[]) => {
-    return await apiCall<{ syncedCount: number; partnerIds: number[] }>(
-      '/companies/sync-bulk',
-      {
+  const syncBulk = useCallback(
+    async (companyIds: string[]) => {
+      return await apiCall<{ syncedCount: number; partnerIds: number[] }>('/companies/sync-bulk', {
         method: 'POST',
         body: JSON.stringify({ companyIds }),
-      }
-    );
-  }, [apiCall]);
+      });
+    },
+    [apiCall],
+  );
 
-  const addToMailingListBulk = useCallback(async (
-    companyIds: string[],
-    mailingListId: number
-  ) => {
-    return await apiCall<{ addedCount: number; subscriptionIds: number[] }>(
-      '/companies/add-to-list-bulk',
-      {
-        method: 'POST',
-        body: JSON.stringify({ companyIds, mailingListId }),
-      }
-    );
-  }, [apiCall]);
+  const updateBulk = useCallback(
+    async (companyIds: string[]) => {
+      return await apiCall<{ updatedCount: number; totalRequested: number; errors?: string[] }>(
+        '/companies/update-bulk',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ companyIds }),
+        },
+      );
+    },
+    [apiCall],
+  );
 
-  const createListWithCompanies = useCallback(async (
-    name: string,
-    companyIds: string[]
-  ) => {
-    return await apiCall<MailingList>(
-      '/companies/create-list-with-companies',
-      {
+  const addToMailingListBulk = useCallback(
+    async (companyIds: string[], mailingListId: number) => {
+      return await apiCall<{ addedCount: number; subscriptionIds: number[] }>(
+        '/companies/add-to-list-bulk',
+        {
+          method: 'POST',
+          body: JSON.stringify({ companyIds, mailingListId }),
+        },
+      );
+    },
+    [apiCall],
+  );
+
+  const createListWithCompanies = useCallback(
+    async (name: string, companyIds: string[]) => {
+      return await apiCall<MailingList>('/companies/create-list-with-companies', {
         method: 'POST',
         body: JSON.stringify({ name, companyIds }),
-      }
-    );
-  }, [apiCall]);
+      });
+    },
+    [apiCall],
+  );
 
   return {
     loading,
     error,
     syncCompany,
+    updateCompany,
     checkSyncStatus,
     addToMailingList,
     getMailingLists,
     syncBulk,
+    updateBulk,
     addToMailingListBulk,
     createListWithCompanies,
   };

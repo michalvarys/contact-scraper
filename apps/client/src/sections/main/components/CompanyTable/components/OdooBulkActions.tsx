@@ -16,6 +16,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     loading,
     error,
     syncBulk,
+    updateBulk,
     addToMailingListBulk,
     createListWithCompanies,
     getMailingLists,
@@ -53,6 +54,25 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     }
   };
 
+  const handleBulkUpdate = async () => {
+    if (selectedCompanyIds.length === 0) return;
+
+    try {
+      const result = await updateBulk(selectedCompanyIds);
+      if (result.errors && result.errors.length > 0) {
+        setShowSuccess(
+          `⚠️ ${result.updatedCount}/${result.totalRequested} kontaktů aktualizováno (${result.errors.length} chyb)`,
+        );
+      } else {
+        setShowSuccess(`✓ ${result.updatedCount} kontaktů aktualizováno v Odoo`);
+      }
+      setTimeout(() => setShowSuccess(null), 4000);
+      onComplete?.();
+    } catch (err: any) {
+      console.error('Bulk update failed:', err);
+    }
+  };
+
   const handleBulkAddToList = async () => {
     if (selectedCompanyIds.length === 0 || !selectedList) return;
 
@@ -62,6 +82,8 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
       setShowSuccess(`✓ ${result.addedCount} kontaktů přidáno do seznamu: ${listName}`);
       setTimeout(() => setShowSuccess(null), 4000);
       setSelectedList('');
+      // Reload mailing lists to update contact counts
+      await loadMailingLists();
       onComplete?.();
     } catch (err: any) {
       console.error('Bulk add to list failed:', err);
@@ -77,8 +99,9 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
       setTimeout(() => setShowSuccess(null), 4000);
       setShowCreateDialog(false);
       setNewListName('');
+      // Reload mailing lists to show new list with contact count
+      await loadMailingLists();
       onComplete?.();
-      loadMailingLists(); // Refresh list
     } catch (err: any) {
       console.error('Create list failed:', err);
     }
@@ -93,7 +116,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
       <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-blue-900">
-            Odoo Bulk Akce ({selectedCompanyIds.length} vybráno)
+            CRM Bulk Akce ({selectedCompanyIds.length} vybráno)
           </h3>
         </div>
 
@@ -126,7 +149,27 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
             ) : (
               <>
                 <Upload className="mr-2 h-4 w-4" />
-                Synchronizovat do Varyshopu
+                Synchronizovat do Odoo
+              </>
+            )}
+          </Button>
+
+          {/* Bulk Update */}
+          <Button
+            type="button"
+            onClick={handleBulkUpdate}
+            disabled={loading}
+            className="bg-orange-500 hover:bg-orange-600 text-white"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Aktualizuji...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Aktualizovat v Odoo
               </>
             )}
           </Button>

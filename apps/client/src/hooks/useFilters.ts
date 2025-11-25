@@ -1,5 +1,32 @@
 import { useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { FilterBooleanType, SortByType, SortDirType } from '@contact-scraper/api/routers';
+
+export const filterColumnMapping: Record<SortByType, SortByType> = {
+  name: 'name',
+  address: 'address',
+  reviewsCount: 'reviewsCount',
+  scrapedAt: 'scrapedAt',
+  email: 'email',
+  website: 'website',
+  phone: 'phone',
+};
+export type FilterType = FilterBooleanType;
+export type FilterSortType = SortByType;
+export type FilterSortDirType = SortDirType;
+
+export type FiltersType = {
+  category?: string;
+  hasWebsite?: FilterType;
+  hasEmail?: FilterType;
+  hasPhone?: FilterType;
+  keyword?: string;
+  page?: string;
+  sortBy?: SortByType;
+  sortDir?: SortDirType;
+  limit?: string;
+  duplicates?: any;
+};
 
 export function useFilters() {
   const router = useRouter();
@@ -8,7 +35,7 @@ export function useFilters() {
 
   // Aktualizace filtrů v URL
   const setFilters = useCallback(
-    (newFilters: Record<string, string>) => {
+    (newFilters: FiltersType) => {
       const params = new URLSearchParams(searchParams.toString());
       // Přidání nebo aktualizace nových filtrů
       Object.entries(newFilters).forEach(([key, value]) => {
@@ -43,13 +70,13 @@ export function useFilters() {
   );
 
   const category = searchParams.get('category') || '';
-  const hasWebsite = searchParams.get('hasWebsite') || 'all';
-  const hasEmail = searchParams.get('hasEmail') || 'all';
-  const hasPhone = searchParams.get('hasPhone') || 'all';
+  const hasWebsite = (searchParams.get('hasWebsite') || 'all') as FilterType;
+  const hasEmail = (searchParams.get('hasEmail') || 'all') as FilterType;
+  const hasPhone = (searchParams.get('hasPhone') || 'all') as FilterType;
   const keyword = searchParams.get('keyword') || '';
   const page = searchParams.get('page') || '1';
-  const sortBy = searchParams.get('sortBy') || 'name';
-  const sortDir = searchParams.get('sortDir') || 'asc';
+  const sortBy = (searchParams.get('sortBy') || 'name') as FilterSortType;
+  const sortDir = (searchParams.get('sortDir') || 'asc') as FilterSortDirType;
   const limit = searchParams.get('limit') || '10';
 
   // Duplicitní filtry

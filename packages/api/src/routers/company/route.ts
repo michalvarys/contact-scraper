@@ -118,11 +118,21 @@ export const companyRouter = router({
   updateCompany: publicProcedure.input(updateCompanySchema).mutation(async ({ input, ctx }) => {
     const { id, categoryIds, ...data } = input;
 
+    // Trim string fields to prevent whitespace-only values
+    const sanitizedData = {
+      ...data,
+      name: data.name?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      phone: data.phone?.trim() || undefined,
+      website: data.website?.trim() || undefined,
+      address: data.address?.trim() || undefined,
+    };
+
     // Aktualizace firmy
     const updatedCompany = await ctx.prisma.company.update({
       where: { id },
       data: {
-        ...data,
+        ...sanitizedData,
         metadata: {
           connectOrCreate: {
             where: {
@@ -151,6 +161,7 @@ export const companyRouter = router({
       },
       include: {
         categories: true,
+        metadata: true,
       },
     });
 

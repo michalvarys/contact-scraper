@@ -15,6 +15,7 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
     loading,
     error,
     syncCompany,
+    updateCompany,
     addToMailingList,
     getMailingLists,
     createListWithCompanies,
@@ -42,11 +43,24 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
   const handleSync = async () => {
     try {
       const partnerId = await syncCompany(company.id);
-      setShowSuccess(`Kontakt synchronizován! Varyshop ID: ${partnerId}`);
+      setShowSuccess(`Kontakt synchronizován! Odoo ID: ${partnerId}`);
       setTimeout(() => setShowSuccess(null), 3000);
       onUpdate?.();
     } catch (err: any) {
       console.error('Sync failed:', err);
+      alert(`❌ Chyba při synchronizaci: ${err?.message || 'Neznámá chyba'}`);
+    }
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await updateCompany(company.id);
+      setShowSuccess('Údaje aktualizovány v Odoo!');
+      setTimeout(() => setShowSuccess(null), 3000);
+      onUpdate?.();
+    } catch (err: any) {
+      console.error('Update failed:', err);
+      alert(`❌ Chyba při aktualizaci: ${err?.message || 'Neznámá chyba'}`);
     }
   };
 
@@ -67,9 +81,18 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
       setShowSuccess(`Přidáno do seznamu: ${listName}`);
       setTimeout(() => setShowSuccess(null), 3000);
       setSelectedList('');
+      // Reload mailing lists to update contact counts
+      await loadMailingLists();
       onUpdate?.();
     } catch (err: any) {
       console.error('Add to list failed:', err);
+      const errorMsg = err?.message || 'Nepodařilo se přidat do seznamu';
+      // Check if it's an email-related error
+      if (errorMsg.includes('no email') || errorMsg.includes('Email is required')) {
+        alert('❌ Kontakt nelze přidat do mailing listu: Chybí emailová adresa');
+      } else {
+        alert(`❌ Chyba: ${errorMsg}`);
+      }
     }
   };
 
@@ -84,7 +107,8 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
       setTimeout(() => setShowSuccess(null), 3000);
       setShowCreateDialog(false);
       setNewListName('');
-      loadMailingLists(); // Refresh list
+      // Reload mailing lists to show new list with contact count
+      await loadMailingLists();
       onUpdate?.();
     } catch (err: any) {
       console.error('Create list failed:', err);
@@ -98,13 +122,11 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-full flex items-center justify-between px-4 py-3"
       >
-        <span className="font-semibold text-lg text-left">CRM Akce</span>
+        <span className="font-semibold text-lg text-left">Odoo CRM</span>
         {company?.odooPartnerId ? (
-          <Badge className="bg-green-100 text-green-800">
-            ✓ Varyshop ID: {company.odooPartnerId}
-          </Badge>
+          <Badge className="bg-green-100 text-green-800">✓ Odoo ID: {company.odooPartnerId}</Badge>
         ) : (
-          <Badge className="bg-gray-100 text-gray-600">Není v CRM</Badge>
+          <Badge className="bg-gray-100 text-gray-600">Není v Odoo</Badge>
         )}
       </button>
 
@@ -137,11 +159,38 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
                 ) : (
                   <>
                     <Upload className="mr-2 h-4 w-4" />
-                    Uložit do Varyshopu
+                    Uložit do Odoo
                   </>
                 )}
               </Button>
-              <p className="text-xs text-gray-600 mt-1">Uložit kontakt do Varyshop CRM systému</p>
+              <p className="text-xs text-gray-600 mt-1">Uložit kontakt do Odoo CRM systému</p>
+            </div>
+          )}
+
+          {/* Update Button - shown when already synced */}
+          {company.odooPartnerId && (
+            <div>
+              <Button
+                type="button"
+                onClick={handleUpdate}
+                disabled={loading}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Aktualizuji...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Aktualizovat v Odoo
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-gray-600 mt-1">
+                Aktualizovat údaje v Odoo (např. pokud jste přidali email)
+              </p>
             </div>
           )}
 

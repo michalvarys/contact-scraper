@@ -1,13 +1,27 @@
 import { z } from 'zod';
 
+const filterBooleanSchema = z.enum(['true', 'false', 'all']).optional();
+export type FiltersType = z.infer<typeof companyQueryParamsSchema>;
+export type FilterBooleanType = z.infer<typeof filterBooleanSchema>;
+const filterSortSchema = z.enum([
+  'name',
+  'address',
+  'reviewsCount',
+  'email',
+  'website',
+  'phone',
+  'scrapedAt',
+]);
+export type SortByType = z.infer<typeof filterSortSchema>; //FiltersType['sortBy'];
+export type SortDirType = FiltersType['sortDir'];
 export const companyQueryParamsSchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
   keyword: z.string().optional(),
   category: z.string().optional(),
-  hasWebsite: z.enum(['true', 'false', 'all']).optional(),
-  hasPhone: z.enum(['true', 'false', 'all']).optional(),
-  hasEmail: z.enum(['true', 'false', 'all']).optional(),
+  hasWebsite: filterBooleanSchema,
+  hasPhone: filterBooleanSchema,
+  hasEmail: filterBooleanSchema,
   sortBy: z
     .enum(['name', 'address', 'reviewsCount', 'email', 'website', 'phone', 'scrapedAt'])
     .optional(),
@@ -55,7 +69,19 @@ export const companyQueryOutputSchema = z.object({
 // Schéma pro aktualizaci firmy
 export const updateCompanySchema = z.object({
   id: z.string(),
-  name: z.string().optional(),
+  name: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (val === undefined) return true; // Optional is ok
+        const trimmed = val?.trim();
+        return trimmed && trimmed.length > 0;
+      },
+      {
+        message: 'Název firmy nesmí být prázdný nebo složený pouze z mezer',
+      },
+    ),
   address: z.string().optional(),
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),

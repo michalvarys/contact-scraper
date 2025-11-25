@@ -24,6 +24,9 @@ export const TableFooter = ({
     onPageSizeChange,
     pageSizeOptions,
 }: TableFooterProps) => {
+    const totalColumns = Math.max(table.getAllColumns().length, 1);
+    const summaryColSpan = Math.max(totalColumns - 1, 1);
+
     return (
         <>
             <TableRow>
@@ -35,31 +38,33 @@ export const TableFooter = ({
                     />
                 </TableCell>
 
-                <TableCell colSpan={table.getAllColumns().length - 1} className="text-sm text-gray-600">
+                <TableCell colSpan={summaryColSpan} className="text-sm text-gray-600">
                     Zobrazeno {table.getRowModel().rows.length} z {pagination.totalItems} záznamů
                 </TableCell>
             </TableRow>
 
             {pagination.currentPage && pagination.totalPages && onPageChange && (
-                <div className="p-2">
-                    <div className="flex flex-wrap justify-between items-center gap-4">
-                        {/* Výběr velikosti stránky */}
-                        {pagination.pageSize !== undefined && onPageSizeChange && (
-                            <PageSizeSelector
-                                pageSize={pagination.pageSize}
-                                onPageSizeChange={onPageSizeChange}
-                                pageSizeOptions={pageSizeOptions}
-                            />
-                        )}
+                <TableRow>
+                    <TableCell colSpan={totalColumns} className="p-2">
+                        <div className="flex flex-wrap justify-between items-center gap-4">
+                            {/* Výběr velikosti stránky */}
+                            {pagination.pageSize !== undefined && onPageSizeChange && (
+                                <PageSizeSelector
+                                    pageSize={pagination.pageSize}
+                                    onPageSizeChange={onPageSizeChange}
+                                    pageSizeOptions={pageSizeOptions}
+                                />
+                            )}
 
-                        {/* Paginace */}
-                        <Pagination
-                            currentPage={pagination.currentPage}
-                            totalPages={pagination.totalPages}
-                            onPageChange={onPageChange}
-                        />
-                    </div>
-                </div>
+                            {/* Paginace */}
+                            <Pagination
+                                currentPage={pagination.currentPage}
+                                totalPages={pagination.totalPages}
+                                onPageChange={onPageChange}
+                            />
+                        </div>
+                    </TableCell>
+                </TableRow>
             )}
         </>
     );

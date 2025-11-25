@@ -49,6 +49,11 @@ export class OdooService {
                 return company.odooPartnerId;
             }
 
+            // Validate that company has an email (required for mailing lists)
+            if (!company.email) {
+                console.warn(`Company ${company.id} (${company.name}) has no email - will sync but cannot be added to mailing lists`);
+            }
+
             const parsedAddress = this.parseAddress(company.address);
             const website = this.normalizeWebsite(company.website);
             const countryId = await this.getCountryId(parsedAddress.country);
@@ -61,7 +66,7 @@ export class OdooService {
             const contactData: ContactData = {
                 name: company.name,
                 email: company.email || undefined,
-                phone: company.phone || undefined,
+                phone: this.normalizePhone(company.phone),
                 street: parsedAddress.street,
                 street2: parsedAddress.street2,
                 city: parsedAddress.city,
@@ -101,6 +106,67 @@ export class OdooService {
     }
 
     /**
+     * Update existing company in Odoo with latest data
+     * @param companyId Local company ID
+     * @returns Success status
+     */
+    async updateCompanyInOdoo(companyId: string): Promise<boolean> {
+        try {
+            const company = await prisma.company.findUnique({
+                where: { id: companyId },
+                include: { categories: true },
+            });
+
+            if (!company) {
+                throw new Error(`Company not found: ${companyId}`);
+            }
+
+            if (!company.odooPartnerId) {
+                throw new Error(`Company ${companyId} is not synced to Odoo. Use sync instead of update.`);
+            }
+
+            const parsedAddress = this.parseAddress(company.address);
+            const website = this.normalizeWebsite(company.website);
+            const countryId = await this.getCountryId(parsedAddress.country);
+            const stateId = await this.getStateId(parsedAddress.state, countryId);
+            const categoryIds =
+                company.categories?.length > 0
+                    ? await this.getOrCreateCategoryIds(company.categories.map((c) => c.name))
+                    : [];
+
+            const contactData: Partial<ContactData> = {
+                name: company.name,
+                email: company.email || undefined,
+                phone: this.normalizePhone(company.phone),
+                street: parsedAddress.street,
+                street2: parsedAddress.street2,
+                city: parsedAddress.city,
+                zip: parsedAddress.postalCode,
+                country_id: countryId,
+                state_id: stateId,
+                website: website || undefined,
+                category_id: categoryIds.length ? categoryIds : undefined,
+            };
+
+            const commentParts: string[] = [];
+            if (website) {
+                commentParts.push(
+                    `<p>Website: <a href="${website}" target="_blank" rel="noopener">${website}</a></p>`,
+                );
+            }
+            commentParts.push(
+                `<p>Google Maps: <a href="${company.link}" target="_blank" rel="noopener">${company.link}</a></p>`,
+            );
+            contactData.comment = commentParts.join('\n');
+
+            const success = await this.adminClient.updateContact(company.odooPartnerId, contactData);
+            return success;
+        } catch (error) {
+            throw new Error(`Failed to update company in Odoo: ${error}`);
+        }
+    }
+
+    /**
      * Sync multiple companies to Odoo
      * @param companyIds Array of local company IDs
      * @returns Array of Odoo partner IDs
@@ -129,6 +195,22 @@ export class OdooService {
      */
     async addCompanyToMailingList(companyId: string, mailingListId: number): Promise<number> {
         try {
+            // First check if company has an email (required for mailing lists)
+            const company = await prisma.company.findUnique({
+                where: { id: companyId },
+                select: { id: true, name: true, email: true, odooPartnerId: true },
+            });
+
+            if (!company) {
+                throw new Error(`Company not found: ${companyId}`);
+            }
+
+            if (!company.email) {
+                throw new Error(
+                    `Company "${company.name}" has no email address. Email is required to add contacts to mailing lists.`,
+                );
+            }
+
             // Sync company to Odoo first (or get existing partner ID)
             const partnerId = await this.syncCompanyToOdoo(companyId);
 
@@ -140,8 +222,10 @@ export class OdooService {
             );
 
             return subscriptionId;
-        } catch (error) {
-            throw new Error(`Failed to add company to mailing list: ${error}`);
+        } catch (error: any) {
+            console.error('Error in addCompanyToMailingList:', error);
+            const errorMsg = error?.message || String(error);
+            throw new Error(`Failed to add company to mailing list: ${errorMsg}`);
         }
     }
 
@@ -265,6 +349,13 @@ export class OdooService {
             normalized = `https://${normalized}`;
         }
         return normalized;
+    }
+
+    private normalizePhone(phone?: string | null): string | undefined {
+        if (!phone) return undefined;
+        // Remove all spaces, dashes, and parentheses from phone number
+        const normalized = phone.replace(/[\s\-()]/g, '');
+        return normalized || undefined;
     }
 
     private parseAddress(address: string | null | undefined): {

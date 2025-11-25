@@ -10,8 +10,8 @@ import {
   PaginationState,
 } from '@tanstack/react-table';
 import { useCompanies } from '@/hooks/useCompanies';
-import { useFilters } from '@/hooks/useFilters';
-import { Company } from '@contact-scraper/api/routers';
+import { filterColumnMapping, FilterSortDirType, useFilters } from '@/hooks/useFilters';
+import { Company, SortByType } from '@contact-scraper/api/routers';
 
 // Pomocník pro vytváření sloupců
 const columnHelper = createColumnHelper<Company>();
@@ -179,23 +179,14 @@ export const useBusinessTable = (options: UseBusinessTableOptions = {}): UseBusi
 
       // Aktualizace filtrů pro API
       if (newSorting.length > 0) {
-        const sortColumn = newSorting[0].id;
+        const sortColumn = newSorting[0].id as SortByType;
         const sortDirection = newSorting[0].desc ? 'desc' : 'asc';
 
         // Mapování sloupců na názvy v API
-        const columnMapping: Record<string, string> = {
-          name: 'name',
-          address: 'address',
-          reviewsCount: 'reviewsCount',
-          scrapedAt: 'scrapedAt',
-          email: 'email',
-          website: 'website',
-          phone: 'phone',
-        };
 
-        if (columnMapping[sortColumn]) {
+        if (filterColumnMapping[sortColumn]) {
           setFilters({
-            sortBy: columnMapping[sortColumn],
+            sortBy: filterColumnMapping[sortColumn],
             sortDir: sortDirection,
           });
         }

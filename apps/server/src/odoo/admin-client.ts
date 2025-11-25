@@ -742,14 +742,25 @@ export class AdminClient extends BaseClient {
         optOut: boolean = false,
     ): Promise<number> {
         try {
-            // Get partner email - required for mailing.contact
-            const partner = await this.read('res.partner', [contactId], ['email', 'name']);
-            if (partner.length === 0 || !partner[0].email) {
-                throw new Error('Partner must have an email to be added to mailing list');
+            // Get partner data - email required, phone and tags optional for mailing.contact
+            const partner = await this.read('res.partner', [contactId], ['email', 'name', 'phone', 'mobile', 'category_id']);
+
+            if (partner.length === 0) {
+                throw new Error(`Partner ${contactId} not found in Odoo`);
+            }
+
+            if (!partner[0].email) {
+                console.error('Partner missing email:', {
+                    partnerId: contactId,
+                    partnerData: partner[0],
+                });
+                throw new Error(`Partner ${contactId} (${partner[0].name}) has no email address. Email is required for mailing lists.`);
             }
 
             const email = partner[0].email;
             const name = partner[0].name;
+            const phone = partner[0].mobile || partner[0].phone || undefined;
+            const tagIds = partner[0].category_id || [];
 
             // Check if mailing.contact already exists for this email
             let mailingContactId: number;
@@ -757,13 +768,31 @@ export class AdminClient extends BaseClient {
 
             if (existingContact.length > 0) {
                 mailingContactId = existingContact[0];
+                // Update phone and tags if they changed
+                const updateData: any = {};
+                if (phone) {
+                    updateData.mobile = phone;
+                }
+                if (tagIds.length > 0) {
+                    updateData.tag_ids = [[6, 0, tagIds]]; // Replace all tags
+                }
+                if (Object.keys(updateData).length > 0) {
+                    await this.write('mailing.contact', [mailingContactId], updateData);
+                }
             } else {
-                // Create new mailing.contact
-                mailingContactId = await this.create('mailing.contact', {
+                // Create new mailing.contact with phone and tags
+                const contactData: any = {
                     email: email,
                     name: name,
                     opt_out: optOut,
-                });
+                };
+                if (phone) {
+                    contactData.mobile = phone;
+                }
+                if (tagIds.length > 0) {
+                    contactData.tag_ids = [[6, 0, tagIds]]; // Set tags
+                }
+                mailingContactId = await this.create('mailing.contact', contactData);
             }
 
             // Check if subscription already exists
@@ -786,8 +815,14 @@ export class AdminClient extends BaseClient {
             });
 
             return subscriptionId;
-        } catch (error) {
-            throw new Error(`Failed to add contact to mailing list: ${error}`);
+        } catch (error: any) {
+            console.error('Error in addContactToMailingList:', {
+                contactId,
+                listId,
+                error: error?.message || String(error),
+            });
+            const errorMsg = error?.message || String(error);
+            throw new Error(`Failed to add contact to mailing list: ${errorMsg}`);
         }
     }
 

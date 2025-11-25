@@ -50,7 +50,7 @@ export const BusinessTableFilters: React.FC<BusinessTableFiltersProps> = ({
   };
 
   return (
-    <div className={cn('flex gap-2 items-center flex-wrap w-full', className)}>
+    <div className={cn('!z-[21] flex gap-2 items-center flex-wrap w-full', className)}>
       <Input
         placeholder="Hledat podle názvu nebo adresy"
         value={searchTerm}
@@ -58,7 +58,7 @@ export const BusinessTableFilters: React.FC<BusinessTableFiltersProps> = ({
         className="max-w-[300px]"
       />
 
-      <CategorySelectFilter />
+      <CategorySelectFilter className="min-w-[300px]" />
 
       <CustomSelect
         className="w-32"

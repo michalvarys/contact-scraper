@@ -174,6 +174,35 @@ router.post("/companies/:id/sync", async (req: Request, res: Response) => {
 });
 
 /**
+ * PUT /api/odoo/companies/:id/update
+ * Update existing company data in Odoo
+ */
+router.put("/companies/:id/update", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const service = getOdooService();
+
+    const success = await service.updateCompanyInOdoo(id);
+
+    res.json({
+      success: true,
+      data: {
+        companyId: id,
+        updated: success,
+      },
+      message: "Company updated in Odoo successfully",
+    });
+  } catch (error: any) {
+    console.error("Error updating company in Odoo:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update company in Odoo",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * POST /api/odoo/companies/sync-bulk
  * Sync multiple companies to Odoo
  */
@@ -205,6 +234,55 @@ router.post("/companies/sync-bulk", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "Failed to sync companies to Odoo",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/odoo/companies/update-bulk
+ * Update multiple companies in Odoo
+ */
+router.put("/companies/update-bulk", async (req: Request, res: Response) => {
+  try {
+    const { companyIds } = req.body;
+
+    if (!companyIds || !Array.isArray(companyIds)) {
+      res.status(400).json({
+        success: false,
+        message: "companyIds array is required",
+      });
+      return;
+    }
+
+    const service = getOdooService();
+    let updatedCount = 0;
+    const errors: string[] = [];
+
+    for (const companyId of companyIds) {
+      try {
+        await service.updateCompanyInOdoo(companyId);
+        updatedCount++;
+      } catch (error: any) {
+        console.error(`Failed to update company ${companyId}:`, error);
+        errors.push(`${companyId}: ${error.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        updatedCount,
+        totalRequested: companyIds.length,
+        errors: errors.length > 0 ? errors : undefined,
+      },
+      message: `${updatedCount} companies updated in Odoo successfully`,
+    });
+  } catch (error: any) {
+    console.error("Error updating companies in Odoo:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update companies in Odoo",
       error: error.message,
     });
   }
