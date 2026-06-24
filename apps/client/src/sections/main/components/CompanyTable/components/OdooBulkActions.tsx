@@ -1,24 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOdoo } from '@/hooks/useOdoo';
 import { useExportCSV } from '@/hooks';
 import { Button } from '@/components/atoms/Button';
 import { Loader2, Upload, Plus, ListPlus, Download } from 'lucide-react';
 import type { Company } from '@contact-scraper/api/routers';
+import { useFilters } from '@/hooks/useFilters';
+import { trpc } from '@/trpc/trpc';
 
 interface OdooBulkActionsProps {
   selectedCompanyIds: string[];
   selectedCompanies: Company[];
+  isAllSelected?: boolean;
   onComplete?: () => void;
 }
 
 export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   selectedCompanyIds,
   selectedCompanies,
+  isAllSelected = false,
   onComplete,
 }) => {
   const {
     loading,
     error,
+    progress,
     syncBulk,
     updateBulk,
     addToMailingListBulk,
@@ -26,6 +31,19 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     getMailingLists,
   } = useOdoo();
   const { exportToCSV } = useExportCSV();
+
+  const { filters } = useFilters();
+  const { data: allIds, isFetching: isAllIdsFetching } = trpc.company.getAllIds.useQuery(filters, {
+    enabled: isAllSelected,
+    keepPreviousData: false,
+  });
+
+  const getEffectiveIds = useCallback((): string[] => {
+    if (isAllSelected && allIds && !isAllIdsFetching) {
+      return allIds;
+    }
+    return selectedCompanyIds;
+  }, [isAllSelected, allIds, isAllIdsFetching, selectedCompanyIds]);
 
   const [mailingLists, setMailingLists] = useState<any[]>([]);
   const [selectedList, setSelectedList] = useState<string>('');
@@ -47,10 +65,11 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   };
 
   const handleBulkSync = async () => {
-    if (selectedCompanyIds.length === 0) return;
+    const ids = getEffectiveIds();
+    if (ids.length === 0) return;
 
     try {
-      const result = await syncBulk(selectedCompanyIds);
+      const result = await syncBulk(ids);
       setShowSuccess(`✓ ${result.syncedCount} kontaktů synchronizováno do Odoo`);
       setTimeout(() => setShowSuccess(null), 4000);
       onComplete?.();
@@ -60,10 +79,11 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   };
 
   const handleBulkUpdate = async () => {
-    if (selectedCompanyIds.length === 0) return;
+    const ids = getEffectiveIds();
+    if (ids.length === 0) return;
 
     try {
-      const result = await updateBulk(selectedCompanyIds);
+      const result = await updateBulk(ids);
       if (result.errors && result.errors.length > 0) {
         setShowSuccess(
           `⚠️ ${result.updatedCount}/${result.totalRequested} kontaktů aktualizováno (${result.errors.length} chyb)`,
@@ -79,10 +99,11 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   };
 
   const handleBulkAddToList = async () => {
-    if (selectedCompanyIds.length === 0 || !selectedList) return;
+    const ids = getEffectiveIds();
+    if (ids.length === 0 || !selectedList) return;
 
     try {
-      const result = await addToMailingListBulk(selectedCompanyIds, parseInt(selectedList));
+      const result = await addToMailingListBulk(ids, parseInt(selectedList));
       const listName = mailingLists.find((l) => l.id === parseInt(selectedList))?.name;
       setShowSuccess(`✓ ${result.addedCount} kontaktů přidáno do seznamu: ${listName}`);
       setTimeout(() => setShowSuccess(null), 4000);
@@ -96,10 +117,11 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
   };
 
   const handleCreateList = async () => {
-    if (!newListName.trim() || selectedCompanyIds.length === 0) return;
+    const ids = getEffectiveIds();
+    if (!newListName.trim() || ids.length === 0) return;
 
     try {
-      const result = await createListWithCompanies(newListName, selectedCompanyIds);
+      const result = await createListWithCompanies(newListName, ids);
       setShowSuccess(`✓ Seznam "${result.name}" vytvořen s ${result.contact_count} kontakty`);
       setTimeout(() => setShowSuccess(null), 4000);
       setShowCreateDialog(false);
@@ -122,6 +144,9 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     setTimeout(() => setShowSuccess(null), 4000);
   };
 
+  const allIdsReady = isAllSelected && allIds && !isAllIdsFetching;
+  const effectiveCount = allIdsReady ? allIds.length : selectedCompanyIds.length;
+
   if (selectedCompanyIds.length === 0) {
     return null;
   }
@@ -131,7 +156,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
       <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-blue-900">
-            CRM Bulk Akce ({selectedCompanyIds.length} vybráno)
+            CRM Bulk Akce ({effectiveCount} vybráno)
           </h3>
         </div>
 
@@ -145,6 +170,22 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
         {/* Error Message */}
         {error && (
           <div className="mb-3 p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>
+        )}
+
+        {/* Progress */}
+        {progress && (
+          <div className="mb-3">
+            <div className="flex justify-between text-sm text-blue-800 mb-1">
+              <span>Zpracovávám...</span>
+              <span>{progress.current} / {progress.total}</span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all"
+                style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
+              />
+            </div>
+          </div>
         )}
 
         {/* Actions */}
@@ -259,7 +300,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Vytvořit nový mailing seznam</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Vytvoří nový mailing seznam a přidá {selectedCompanyIds.length} vybraných kontaktů.
+              Vytvoří nový mailing seznam a přidá {effectiveCount} vybraných kontaktů.
             </p>
             <input
               type="text"

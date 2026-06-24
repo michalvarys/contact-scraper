@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/molecules/Tabs";
+import { trpc } from "@/trpc/trpc";
 import { useTaskDetail, useTaskLinks, useTaskLogs } from "./hooks";
 import { TaskDetailHeader } from "./components/TaskDetailHeader";
 import { TaskDetailStats } from "./components/TaskDetailStats";
@@ -18,8 +20,20 @@ interface TaskDetailProps {
  */
 const TaskDetail = ({ taskId }: TaskDetailProps) => {
     const [activeTab, setActiveTab] = useState("info");
+    const router = useRouter();
 
-    // Použití hooků pro získání dat a funkcí
+    const { data: tasks } = trpc.scraper.getTasks.useQuery({});
+
+    const { prevTaskId, nextTaskId } = useMemo(() => {
+        if (!tasks || tasks.length === 0) return { prevTaskId: null, nextTaskId: null };
+        const idx = tasks.findIndex((t: any) => t.id === taskId);
+        if (idx === -1) return { prevTaskId: null, nextTaskId: null };
+        return {
+            prevTaskId: idx > 0 ? tasks[idx - 1].id : null,
+            nextTaskId: idx < tasks.length - 1 ? tasks[idx + 1].id : null,
+        };
+    }, [tasks, taskId]);
+
     const {
         task,
         isLoading,
@@ -48,7 +62,9 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
         rescrapMissingCompanyLinks,
         isRescrapingMissingLinks,
         restartFailedLinks,
-        isRestartingFailedLinks
+        isRestartingFailedLinks,
+        invalidateLinks,
+        isInvalidating,
     } = useTaskLinks(taskId);
 
     const { logs } = useTaskLogs(taskId);
@@ -73,7 +89,23 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
     }
 
     return (
-        <div className="container-fluid py-10">
+        <div className="container-fluid py-10 relative">
+            {prevTaskId && (
+                <button
+                    onClick={() => router.push(`/scraper/${prevTaskId}`)}
+                    className="fixed left-0 top-1/2 -translate-y-1/2 z-50 bg-background/80 hover:bg-accent border border-border rounded-r-lg p-2 shadow-md transition-colors"
+                >
+                    <ChevronLeft className="h-6 w-6" />
+                </button>
+            )}
+            {nextTaskId && (
+                <button
+                    onClick={() => router.push(`/scraper/${nextTaskId}`)}
+                    className="fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-background/80 hover:bg-accent border border-border rounded-l-lg p-2 shadow-md transition-colors"
+                >
+                    <ChevronRight className="h-6 w-6" />
+                </button>
+            )}
             <TaskDetailHeader
                 task={task}
                 isRunning={isRunning}
@@ -119,6 +151,8 @@ const TaskDetail = ({ taskId }: TaskDetailProps) => {
                         isBulkRescraping={isRescrapingMissingLinks}
                         onRestartFailed={restartFailedLinks}
                         isRestartingFailed={isRestartingFailedLinks}
+                        onInvalidateLinks={invalidateLinks}
+                        isInvalidating={isInvalidating}
                     />
                 </TabsContent>
 

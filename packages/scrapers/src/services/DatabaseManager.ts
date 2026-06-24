@@ -69,23 +69,42 @@ export class DatabaseManager {
     ...companyData
   }: Record<string, any>) {
     try {
-      // Uložení kategorií
-      const categories = companyData.categories || [];
-      delete companyData.categories;
+      const categories: string[] = Array.isArray(companyData.categories)
+        ? companyData.categories.map((c: any) => typeof c === 'string' ? c : c?.name).filter(Boolean)
+        : [];
 
-      if (companyData.website && !/^https?:\/\//.test(companyData.website)) {
-        companyData.website = 'https://' + companyData.website;
+      let website = companyData.website || null;
+      if (website && !/^https?:\/\//.test(website)) {
+        website = 'https://' + website;
       }
 
-      // Uložení základních dat firmy do databáze
+      const reviewsCount = companyData.reviewsCount != null
+        ? Number(companyData.reviewsCount)
+        : companyData.reviewCount != null
+          ? Number(companyData.reviewCount)
+          : 0;
+
+      const safeData = {
+        name: companyData.name || '',
+        address: companyData.address || '',
+        email: companyData.email || null,
+        phone: companyData.phone || null,
+        website,
+        link: companyData.link,
+        reviewsCount,
+        scrapedAt: companyData.scrapedAt || new Date(),
+      };
+
       const companyRecord = await prisma.company.upsert({
-        where: { link: companyData.link },
+        where: { link: safeData.link },
         update: {
-          ...companyData,
-          id: undefined,
-          address: companyData.address || undefined,
-          name: companyData.name || undefined,
-          reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
+          name: safeData.name || undefined,
+          address: safeData.address || undefined,
+          email: safeData.email,
+          phone: safeData.phone,
+          website: safeData.website,
+          reviewsCount: safeData.reviewsCount,
+          scrapedAt: safeData.scrapedAt,
           categories: {
             connectOrCreate: categories.map((categoryName: string) => ({
               where: { name: categoryName },
@@ -94,13 +113,14 @@ export class DatabaseManager {
           },
         },
         create: {
-          ...companyData,
-          id: undefined,
-          address: companyData.address || '',
-          reviewsCount: companyData.reviewCount ? Number(companyData.reviewCount) : undefined,
-          link: companyData.link,
-          name: companyData.name || '',
-          scrapedAt: new Date(),
+          name: safeData.name,
+          address: safeData.address,
+          email: safeData.email,
+          phone: safeData.phone,
+          website: safeData.website,
+          link: safeData.link,
+          reviewsCount: safeData.reviewsCount,
+          scrapedAt: safeData.scrapedAt,
           categories: {
             connectOrCreate: categories.map((categoryName: string) => ({
               where: { name: categoryName },
@@ -111,7 +131,7 @@ export class DatabaseManager {
       });
 
       // Pokud má firma webovou stránku a máme data o ní, uložíme je
-      if (websiteData && companyData.website) {
+      if (websiteData && safeData.website) {
         await this.saveWebsiteData(
           companyRecord.id,
           {
@@ -121,11 +141,11 @@ export class DatabaseManager {
               ...websiteData.metadata,
             },
           },
-          companyData.website,
+          safeData.website,
         );
       }
 
-      console.log(`Firma "${companyData.name}" byla úspěšně uložena.`);
+      console.log(`Firma "${safeData.name}" byla úspěšně uložena.`);
 
       // Načtení kompletních dat o firmě včetně relací
       const savedCompany = await prisma.company.findUnique({

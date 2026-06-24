@@ -59,20 +59,25 @@ export abstract class BaseScraper {
 
       // Set User-Agent and other headers
       await this.page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
       );
     }
   }
 
-  // Close browser
   protected async closeBrowser() {
     if (this.page) {
-      await this.saveCookies();
-      await this.page.close();
+      try {
+        await this.saveCookies();
+      } catch {}
+      try {
+        await this.page.close();
+      } catch {}
       this.page = null;
     }
     if (this.browser) {
-      await this.browser.close();
+      try {
+        await this.browser.close();
+      } catch {}
       this.browser = null;
     }
   }
@@ -259,7 +264,7 @@ export abstract class BaseScraper {
   // Method to wait for page elements to load
   protected async waitForPageLoad() {
     // Default implementation - override in child classes
-    await this.page?.waitForTimeout(1000);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   // Method to check if there's a next page

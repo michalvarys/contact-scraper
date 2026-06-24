@@ -240,7 +240,7 @@ export const mockGoogleMapsHtml = `
 `;
 
 /**
- * Mock HTML obsah pro Firmy.cz stránku
+ * Mock HTML obsah pro Firmy.cz stránku (aktuální struktura 2025+)
  */
 export const mockFirmyCzHtml = `
 <!DOCTYPE html>
@@ -249,18 +249,24 @@ export const mockFirmyCzHtml = `
   <title>Autoservis Rychlý - Firmy.cz</title>
 </head>
 <body>
-  <h1 class="detailPrimaryTitle">Autoservis Rychlý</h1>
-  <div class="detailAddress">Dlouhá 789, 301 00 Plzeň Navigovat</div>
-  <div class="detailPhonePrimary">+420 345 678 901</div>
-  <div class="detailEmail"><a href="mailto:servis@autoservisrychly.cz">servis@autoservisrychly.cz</a></div>
-  <div class="detailWebUrl"><a href="https://www.autoservisrychly.cz">www.autoservisrychly.cz</a></div>
-  <div class="list lcat">
-    <ul>
-      <li><a href="#">Autoservis</a></li>
-      <li><a href="#">Pneuservis</a></li>
-      <li><a href="#">Autodiagnostika</a></li>
-    </ul>
-  </div>
+  <h1>Autoservis Rychlý</h1>
+  <h6>Adresa</h6>
+  <p>Patočkova 4/6, 169 00 Praha, Střešovice</p>
+  <a href="https://maps.google.com">Navigovat</a>
+  <h6>Telefon</h6>
+  <p>+420 345 678 901</p>
+  <h6>E-mail</h6>
+  <a href="mailto:servis@autoservisrychly.cz">servis@autoservisrychly.cz</a>
+  <h6>Web</h6>
+  <a href="https://www.autoservisrychly.cz?utm_source=firmy.cz">www.autoservisrychly.cz</a>
+  <h6>Štítky</h6>
+  <ul>
+    <li><a href="#">Autoservis</a></li>
+    <li><a href="#">Pneuservis</a></li>
+    <li><a href="#">Autodiagnostika</a></li>
+  </ul>
+  <h6>IČO</h6>
+  <p>12345678</p>
 </body>
 </html>
 `;

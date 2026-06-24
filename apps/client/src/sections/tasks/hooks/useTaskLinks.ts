@@ -18,6 +18,7 @@ export const useTaskLinks = (taskId: string) => {
   const [showAddLinkForm, setShowAddLinkForm] = useState(false);
   const [isRescrapingMissingLinks, setIsRescrapingMissingLinks] = useState(false);
   const [isRestartingFailedLinks, setIsRestartingFailedLinks] = useState(false);
+  const [isInvalidating, setIsInvalidating] = useState(false);
 
   // Získání odkazů úlohy
   const { data: links, refetch } = trpc.scraper.getTaskLinks.useQuery({ taskId });
@@ -75,6 +76,7 @@ export const useTaskLinks = (taskId: string) => {
   });
 
   const rescrapLinkMutation = trpc.scraper.rescrapLink.useMutation();
+  const invalidateLinksMutation = trpc.scraper.invalidateLinks.useMutation();
 
   // Funkce pro zpracování odkazu
   const processLink = (link: string) => {
@@ -228,6 +230,30 @@ export const useTaskLinks = (taskId: string) => {
     }
   };
 
+  const invalidateLinks = async (linkIds: string[]) => {
+    if (linkIds.length === 0) return;
+    setIsInvalidating(true);
+    try {
+      await invalidateLinksMutation.mutateAsync({ linkIds });
+      await refetch();
+      toast({
+        title: 'Odkazy invalidovány',
+        description: `${linkIds.length} odkazů bylo resetováno na stav PENDING.`,
+        variant: 'success',
+        duration: 5000,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Chyba při invalidaci',
+        description: error?.message || 'Nastala neočekávaná chyba.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    } finally {
+      setIsInvalidating(false);
+    }
+  };
+
   return {
     links,
     addLinkForm,
@@ -241,5 +267,7 @@ export const useTaskLinks = (taskId: string) => {
     isRescrapingMissingLinks,
     restartFailedLinks,
     isRestartingFailedLinks,
+    invalidateLinks,
+    isInvalidating,
   };
 };

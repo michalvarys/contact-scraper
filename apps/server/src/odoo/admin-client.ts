@@ -8,6 +8,7 @@ import {
     PasswordResetRequestData,
     PasswordResetConfirmData,
     ContactData,
+    MailingContactData,
     LinkTrackerData,
     LinkTrackerRecord,
     LinkTrackerClickData,
@@ -168,139 +169,102 @@ export class AdminClient extends BaseClient {
     }
 
     // ============================================================================
-    // CONTACT MANAGEMENT
+    // MAILING CONTACT MANAGEMENT
     // ============================================================================
 
     /**
-     * Create a contact in res.partner
-     * @param contactData Contact information
-     * @returns Created partner ID
+     * Create a mailing contact in mailing.contact
+     * @param contactData Mailing contact information
+     * @returns Created mailing contact ID
      */
-    async createContact(contactData: ContactData): Promise<number> {
+    async createMailingContact(contactData: MailingContactData): Promise<number> {
         try {
-            const partnerData: any = {
+            const data: any = {
                 name: contactData.name,
-                type: contactData.type || 'contact',
             };
 
-            // Add optional fields if provided
-            if (contactData.email) partnerData.email = contactData.email;
-            if (contactData.phone) partnerData.phone = contactData.phone;
-            if (contactData.mobile) partnerData.mobile = contactData.mobile;
-            if (contactData.street) partnerData.street = contactData.street;
-            if (contactData.street2) partnerData.street2 = contactData.street2;
-            if (contactData.city) partnerData.city = contactData.city;
-            if (contactData.zip) partnerData.zip = contactData.zip;
-            if (contactData.country_id) partnerData.country_id = contactData.country_id;
-            if (contactData.state_id) partnerData.state_id = contactData.state_id;
-            if (contactData.company_name) partnerData.company_name = contactData.company_name;
-            if (contactData.company_type) partnerData.company_type = contactData.company_type;
-            if (typeof contactData.is_company === 'boolean') partnerData.is_company = contactData.is_company;
-            if (contactData.website) partnerData.website = contactData.website;
-            if (contactData.comment) partnerData.comment = contactData.comment;
-            if (contactData.category_id && contactData.category_id.length > 0) {
-                partnerData.category_id = [[6, 0, contactData.category_id]];
+            if (contactData.email) data.email = contactData.email;
+            if (contactData.company_name) data.company_name = contactData.company_name;
+            if (contactData.country_id) data.country_id = contactData.country_id;
+            if (contactData.mobile) data.mobile = contactData.mobile;
+            if (contactData.tag_ids && contactData.tag_ids.length > 0) {
+                data.tag_ids = [[6, 0, contactData.tag_ids]];
             }
 
-            // Add UTM tracking fields
-            if (contactData.campaign_id) partnerData.campaign_id = contactData.campaign_id;
-            if (contactData.medium_id) partnerData.medium_id = contactData.medium_id;
-            if (contactData.source_id) partnerData.source_id = contactData.source_id;
-
-            const partnerId = await this.create('res.partner', partnerData);
-            return partnerId;
+            const mailingContactId = await this.create('mailing.contact', data);
+            return mailingContactId;
         } catch (error) {
-            throw new Error(`Contact creation failed: ${error}`);
+            throw new Error(`Mailing contact creation failed: ${error}`);
         }
     }
 
     /**
-     * Update existing contact
-     * @param partnerId Partner ID to update
-     * @param contactData Updated contact data
+     * Update existing mailing contact
+     * @param mailingContactId Mailing contact ID to update
+     * @param contactData Updated mailing contact data
      * @returns Success status
      */
-    async updateContact(partnerId: number, contactData: Partial<ContactData>): Promise<boolean> {
+    async updateMailingContact(mailingContactId: number, contactData: Partial<MailingContactData>): Promise<boolean> {
         try {
             const updateData: any = {};
 
-            // Only include fields that are provided
             if (contactData.name) updateData.name = contactData.name;
             if (contactData.email) updateData.email = contactData.email;
-            if (contactData.phone) updateData.phone = contactData.phone;
-            if (contactData.mobile) updateData.mobile = contactData.mobile;
-            if (contactData.street) updateData.street = contactData.street;
-            if (contactData.street2) updateData.street2 = contactData.street2;
-            if (contactData.city) updateData.city = contactData.city;
-            if (contactData.zip) updateData.zip = contactData.zip;
-            if (contactData.country_id) updateData.country_id = contactData.country_id;
-            if (contactData.state_id) updateData.state_id = contactData.state_id;
             if (contactData.company_name) updateData.company_name = contactData.company_name;
-            if (contactData.company_type) updateData.company_type = contactData.company_type;
-            if (typeof contactData.is_company === 'boolean') updateData.is_company = contactData.is_company;
-            if (contactData.website) updateData.website = contactData.website;
-            if (contactData.comment) updateData.comment = contactData.comment;
-            if (contactData.type) updateData.type = contactData.type;
-            if (contactData.category_id) {
-                updateData.category_id = [[6, 0, contactData.category_id]];
+            if (contactData.country_id) updateData.country_id = contactData.country_id;
+            if (contactData.mobile) updateData.mobile = contactData.mobile;
+            if (contactData.tag_ids) {
+                updateData.tag_ids = [[6, 0, contactData.tag_ids]];
             }
 
-            return await this.write('res.partner', [partnerId], updateData);
+            return await this.write('mailing.contact', [mailingContactId], updateData);
         } catch (error) {
-            throw new Error(`Contact update failed: ${error}`);
+            throw new Error(`Mailing contact update failed: ${error}`);
         }
     }
 
     /**
-     * Get contact by ID
-     * @param partnerId Partner ID
-     * @returns Contact data
+     * Get mailing contact by ID
+     * @param mailingContactId Mailing contact ID
+     * @returns Mailing contact data
      */
-    async getContact(partnerId: number): Promise<any> {
+    async getMailingContact(mailingContactId: number): Promise<any> {
         try {
             const contacts = await this.read(
-                'res.partner',
-                [partnerId],
+                'mailing.contact',
+                [mailingContactId],
                 [
                     'name',
                     'email',
-                    'phone',
-                    'mobile',
-                    'street',
-                    'street2',
-                    'city',
-                    'zip',
-                    'country_id',
-                    'state_id',
                     'company_name',
+                    'country_id',
+                    'mobile',
+                    'tag_ids',
                     'comment',
-                    'type',
-                    'campaign_id',
-                    'medium_id',
-                    'source_id',
+                    'subscription_list_ids',
                 ],
             );
 
             return contacts.length > 0 ? contacts[0] : null;
         } catch (error) {
-            throw new Error(`Failed to get contact: ${error}`);
+            throw new Error(`Failed to get mailing contact: ${error}`);
         }
     }
 
     /**
-     * Search contacts by email
+     * Search mailing contacts by email
      * @param email Email address
-     * @returns Array of matching contacts
+     * @returns Array of matching mailing contacts
      */
-    async searchContactsByEmail(email: string): Promise<any[]> {
+    async searchMailingContactsByEmail(email: string): Promise<any[]> {
         try {
             return await this.searchRead(
-                'res.partner',
+                'mailing.contact',
                 [['email', '=', email]],
-                ['id', 'name', 'email', 'phone', 'mobile', 'city', 'country_id'],
+                ['id', 'name', 'email', 'company_name', 'country_id', 'mobile', 'tag_ids'],
             );
         } catch (error) {
-            throw new Error(`Contact search failed: ${error}`);
+            throw new Error(`Mailing contact search failed: ${error}`);
         }
     }
 
@@ -730,71 +694,18 @@ export class AdminClient extends BaseClient {
     }
 
     /**
-     * Add a contact to a mailing list
-     * @param contactId Partner ID (res.partner)
+     * Add a mailing contact to a mailing list
+     * @param mailingContactId Mailing contact ID (mailing.contact)
      * @param listId Mailing list ID
      * @param optOut Whether the contact is opted out (default: false)
      * @returns Created subscription ID
      */
     async addContactToMailingList(
-        contactId: number,
+        mailingContactId: number,
         listId: number,
         optOut: boolean = false,
     ): Promise<number> {
         try {
-            // Get partner data - email required, phone and tags optional for mailing.contact
-            const partner = await this.read('res.partner', [contactId], ['email', 'name', 'phone', 'mobile', 'category_id']);
-
-            if (partner.length === 0) {
-                throw new Error(`Partner ${contactId} not found in Odoo`);
-            }
-
-            if (!partner[0].email) {
-                console.error('Partner missing email:', {
-                    partnerId: contactId,
-                    partnerData: partner[0],
-                });
-                throw new Error(`Partner ${contactId} (${partner[0].name}) has no email address. Email is required for mailing lists.`);
-            }
-
-            const email = partner[0].email;
-            const name = partner[0].name;
-            const phone = partner[0].mobile || partner[0].phone || undefined;
-            const tagIds = partner[0].category_id || [];
-
-            // Check if mailing.contact already exists for this email
-            let mailingContactId: number;
-            const existingContact = await this.search('mailing.contact', [['email', '=', email]]);
-
-            if (existingContact.length > 0) {
-                mailingContactId = existingContact[0];
-                // Update phone and tags if they changed
-                const updateData: any = {};
-                if (phone) {
-                    updateData.mobile = phone;
-                }
-                if (tagIds.length > 0) {
-                    updateData.tag_ids = [[6, 0, tagIds]]; // Replace all tags
-                }
-                if (Object.keys(updateData).length > 0) {
-                    await this.write('mailing.contact', [mailingContactId], updateData);
-                }
-            } else {
-                // Create new mailing.contact with phone and tags
-                const contactData: any = {
-                    email: email,
-                    name: name,
-                    opt_out: optOut,
-                };
-                if (phone) {
-                    contactData.mobile = phone;
-                }
-                if (tagIds.length > 0) {
-                    contactData.tag_ids = [[6, 0, tagIds]]; // Set tags
-                }
-                mailingContactId = await this.create('mailing.contact', contactData);
-            }
-
             // Check if subscription already exists
             const existingSubscription = await this.search('mailing.subscription', [
                 ['contact_id', '=', mailingContactId],
@@ -802,12 +713,10 @@ export class AdminClient extends BaseClient {
             ]);
 
             if (existingSubscription.length > 0) {
-                // Subscription already exists, update opt_out if needed
                 await this.write('mailing.subscription', existingSubscription, { opt_out: optOut });
                 return existingSubscription[0];
             }
 
-            // Create new subscription linking mailing.contact to mailing.list
             const subscriptionId = await this.create('mailing.subscription', {
                 contact_id: mailingContactId,
                 list_id: listId,
@@ -817,7 +726,7 @@ export class AdminClient extends BaseClient {
             return subscriptionId;
         } catch (error: any) {
             console.error('Error in addContactToMailingList:', {
-                contactId,
+                mailingContactId,
                 listId,
                 error: error?.message || String(error),
             });
@@ -827,28 +736,15 @@ export class AdminClient extends BaseClient {
     }
 
     /**
-     * Remove a contact from a mailing list
-     * @param contactId Partner ID (res.partner)
+     * Remove a mailing contact from a mailing list
+     * @param mailingContactId Mailing contact ID (mailing.contact)
      * @param listId Mailing list ID
      * @returns Success status
      */
-    async removeContactFromMailingList(contactId: number, listId: number): Promise<boolean> {
+    async removeContactFromMailingList(mailingContactId: number, listId: number): Promise<boolean> {
         try {
-            // Get partner email
-            const partner = await this.read('res.partner', [contactId], ['email']);
-            if (partner.length === 0 || !partner[0].email) {
-                return true; // No email, nothing to remove
-            }
-
-            // Find mailing.contact by email
-            const mailingContact = await this.search('mailing.contact', [['email', '=', partner[0].email]]);
-            if (mailingContact.length === 0) {
-                return true; // Contact doesn't exist in mailing system
-            }
-
-            // Find and delete subscription
             const subscriptions = await this.search('mailing.subscription', [
-                ['contact_id', '=', mailingContact[0]],
+                ['contact_id', '=', mailingContactId],
                 ['list_id', '=', listId],
             ]);
 
@@ -863,17 +759,17 @@ export class AdminClient extends BaseClient {
     }
 
     /**
-     * Add multiple contacts to a mailing list
-     * @param contactIds Array of partner IDs
+     * Add multiple mailing contacts to a mailing list
+     * @param mailingContactIds Array of mailing contact IDs
      * @param listId Mailing list ID
      * @returns Array of created subscription IDs
      */
-    async addContactsToMailingList(contactIds: number[], listId: number): Promise<number[]> {
+    async addContactsToMailingList(mailingContactIds: number[], listId: number): Promise<number[]> {
         try {
             const subscriptionIds: number[] = [];
 
-            for (const contactId of contactIds) {
-                const subscriptionId = await this.addContactToMailingList(contactId, listId, false);
+            for (const mailingContactId of mailingContactIds) {
+                const subscriptionId = await this.addContactToMailingList(mailingContactId, listId, false);
                 subscriptionIds.push(subscriptionId);
             }
 
@@ -884,32 +780,29 @@ export class AdminClient extends BaseClient {
     }
 
     /**
-     * Create contact and add to mailing list in one operation
-     * @param contactData Contact data
+     * Create mailing contact and add to mailing list in one operation
+     * @param contactData Mailing contact data
      * @param listId Mailing list ID to add the contact to
-     * @returns Object with partnerId and subscriptionId
+     * @returns Object with mailingContactId and subscriptionId
      */
-    async createContactAndAddToList(
-        contactData: ContactData,
+    async createMailingContactAndAddToList(
+        contactData: MailingContactData,
         listId: number,
-    ): Promise<{ partnerId: number; subscriptionId: number }> {
+    ): Promise<{ mailingContactId: number; subscriptionId: number }> {
         try {
-            // First create the contact
-            const partnerId = await this.createContact(contactData);
+            const mailingContactId = await this.createMailingContact(contactData);
+            const subscriptionId = await this.addContactToMailingList(mailingContactId, listId, false);
 
-            // Then add to mailing list
-            const subscriptionId = await this.addContactToMailingList(partnerId, listId, false);
-
-            return { partnerId, subscriptionId };
+            return { mailingContactId, subscriptionId };
         } catch (error) {
-            throw new Error(`Failed to create contact and add to mailing list: ${error}`);
+            throw new Error(`Failed to create mailing contact and add to list: ${error}`);
         }
     }
 
     /**
      * Get all contacts in a mailing list
      * @param listId Mailing list ID
-     * @returns Array of contacts
+     * @returns Array of mailing contacts
      */
     async getMailingListContacts(listId: number): Promise<any[]> {
         try {
@@ -919,16 +812,14 @@ export class AdminClient extends BaseClient {
                 return [];
             }
 
-            // Get full contact details
-            const contacts = await this.read('res.partner', list.contact_ids, [
+            const contacts = await this.read('mailing.contact', list.contact_ids, [
                 'id',
                 'name',
                 'email',
-                'phone',
                 'mobile',
-                'city',
                 'country_id',
                 'company_name',
+                'tag_ids',
             ]);
 
             return contacts;

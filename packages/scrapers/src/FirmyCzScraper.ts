@@ -16,10 +16,6 @@ export class FirmyCzScraper extends BaseScraper {
     this.searchQuery = options.searchQuery || '';
   }
 
-  /**
-   * Nastavení ID úlohy
-   * @param taskId ID úlohy
-   */
   setTaskId(taskId: string) {
     this.taskId = taskId;
   }
@@ -37,48 +33,95 @@ export class FirmyCzScraper extends BaseScraper {
   }
 
   protected async waitForPageLoad() {
-    await this.page?.waitForSelector('.companyTitle.statCompanyDetail', {
-      timeout: 10000,
-    });
+    if (!this.page) return;
+    try {
+      await this.page.waitForSelector('a[href*="/detail/"]', {
+        timeout: 10000,
+      });
+    } catch {
+      console.log('No detail links found on page');
+    }
   }
 
   protected async checkNextPage(): Promise<boolean> {
     if (!this.page) return false;
 
     return await this.page.evaluate(() => {
-      const nextBtn = document.querySelector('#nextBtn');
-      return nextBtn !== null;
+      const links = Array.from(document.querySelectorAll('a'));
+      return links.some((a) => {
+        const text = a.textContent?.trim() || '';
+        const cls = a.className || '';
+        return text === '>' || text === '›' || a.getAttribute('rel') === 'next'
+          || cls.includes('loadMorePremisesButton')
+          || text.includes('Načíst další');
+      });
     });
   }
 
   protected async goToNextPage() {
     if (!this.page) throw new Error('Page not initialized');
 
-    await this.page.evaluate(() => {
-      const nextBtn = document.querySelector('#nextBtn');
-      if (nextBtn) (nextBtn as any).click();
+    const nextUrl = await this.page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a'));
+      const nextLink = links.find((a) => {
+        const text = a.textContent?.trim() || '';
+        const cls = a.className || '';
+        return text === '>' || text === '›' || a.getAttribute('rel') === 'next'
+          || cls.includes('loadMorePremisesButton')
+          || text.includes('Načíst další');
+      });
+      return nextLink?.href || null;
     });
 
-    await this.page.waitForNavigation({
-      waitUntil: 'networkidle2',
+    if (!nextUrl) throw new Error('Next page link not found');
+
+    await this.page.goto(nextUrl, {
+      waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
+    await this.waitForPageLoad();
   }
 
   protected extractCompanyLinks(html: string): string[] {
     const $ = cheerio.load(html);
-    return $('.companyTitle.statCompanyDetail')
-      .map((_, el) => $(el).attr('href'))
-      .get()
-      .filter((link) => link && !link.startsWith('https://c.seznam.cz/click'))
-      .map((link) =>
-        link.startsWith('http') ? link : `${this.baseUrl}${link.replace(/^\//, '')}`,
-      );
+    const links: string[] = [];
+    const seen = new Set<string>();
+
+    $('a[href*="/detail/"]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (!href) return;
+      if (href.includes('c.seznam.cz/click')) return;
+
+      const match = href.match(/(\/detail\/\d+-[^?#]+\.html)/);
+      if (!match) return;
+
+      const fullUrl = match[1].startsWith('http')
+        ? match[1]
+        : `https://www.firmy.cz${match[1]}`;
+
+      if (!seen.has(fullUrl)) {
+        seen.add(fullUrl);
+        links.push(fullUrl);
+      }
+    });
+
+    return links;
   }
 
   protected hasNextPage(html: string): boolean {
     const $ = cheerio.load(html);
-    return $('#nextBtn').length > 0;
+    const links = $('a');
+    let found = false;
+    links.each((_, el) => {
+      const text = $(el).text().trim();
+      const cls = $(el).attr('class') || '';
+      if (text === '>' || text === '›' || $(el).attr('rel') === 'next'
+        || cls.includes('loadMorePremisesButton')
+        || text.includes('Načíst další')) {
+        found = true;
+      }
+    });
+    return found;
   }
 
   private async fetchPage(url: string): Promise<string> {
@@ -86,7 +129,7 @@ export class FirmyCzScraper extends BaseScraper {
       const response = await axios.get(url, {
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         },
       });
       return response.data;
@@ -102,8 +145,8 @@ export class FirmyCzScraper extends BaseScraper {
 
     const business: Business = {
       id: this.extractId(link),
-      name: $('.detailPrimaryTitle').text().trim(),
-      address: $('.detailAddress').text().trim().replace('Navigovat', ''),
+      name: $('h1').first().text().trim() || 'Unknown',
+      address: this.extractAddress($),
       email: this.extractEmail($),
       phone: this.extractPhone($),
       website: this.extractWebsite($),
@@ -125,27 +168,64 @@ export class FirmyCzScraper extends BaseScraper {
     return match ? match[1] : Date.now().toString() + Math.random().toString(36).substr(2, 9);
   }
 
-  private extractEmail($: cheerio.CheerioAPI): string | null {
-    const emailLink = $('.detailEmail a');
-    const email = emailLink.length ? emailLink.attr('href')?.replace('mailto:', '') || null : null;
+  private extractAddress($: cheerio.CheerioAPI): string {
+    const addrSpan = $('span.addrValue').first();
+    if (addrSpan.length) {
+      return addrSpan.text().trim();
+    }
+    const addrDiv = $('div.detailAddress span').first();
+    if (addrDiv.length) {
+      return addrDiv.text().trim();
+    }
+    return '';
+  }
 
-    return email?.split('?').shift() || null;
+  private extractEmail($: cheerio.CheerioAPI): string | null {
+    const mailtoLink = $('a[data-dot="e-mail"]').first();
+    if (mailtoLink.length) {
+      const href = mailtoLink.attr('href') || '';
+      return href.replace('mailto:', '').split('?').shift() || null;
+    }
+    const fallback = $('a[href^="mailto:"]').first();
+    if (fallback.length) {
+      const href = fallback.attr('href') || '';
+      return href.replace('mailto:', '').split('?').shift() || null;
+    }
+    return null;
   }
 
   private extractPhone($: cheerio.CheerioAPI): string | null {
-    const phone = $('.detailPhonePrimary').text().trim();
-    return phone || null;
+    const phoneSpan = $('span[data-dot="origin-phone-number"]').first();
+    if (phoneSpan.length) {
+      return phoneSpan.text().trim() || null;
+    }
+    const telLink = $('a[href^="tel:"]').first();
+    if (telLink.length) {
+      return telLink.text().trim() || telLink.attr('href')?.replace('tel:', '') || null;
+    }
+    return null;
   }
 
   private extractWebsite($: cheerio.CheerioAPI): string | null {
-    const websiteLink = $('.detailWebUrl');
-    return websiteLink.length ? websiteLink.attr('href')?.split('?').shift() || null : null;
+    const webLinks = $('a[href*="utm_source=firmy.cz"]');
+    let website: string | null = null;
+    webLinks.each((_, el) => {
+      if (website) return;
+      const href = $(el).attr('href') || '';
+      if (href && !href.includes('firmy.cz/detail')) {
+        website = href.split('?').shift() || null;
+      }
+    });
+    return website;
   }
 
   private extractCategories($: cheerio.CheerioAPI): string[] {
-    return $('.list.lcat ul li a')
-      .map((_, el) => $(el).text().trim())
-      .get();
+    const categories = new Set<string>();
+    $('a[href*="/stitek/"]').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text) categories.add(text);
+    });
+    return [...categories];
   }
 
   /**
@@ -167,7 +247,7 @@ export class FirmyCzScraper extends BaseScraper {
       // Navigace na stránku s výsledky vyhledávání
       const pageUrl = this.buildPageUrl(1, query);
       await this.page.goto(pageUrl, {
-        waitUntil: 'networkidle2',
+        waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
 
@@ -199,8 +279,7 @@ export class FirmyCzScraper extends BaseScraper {
       let hasNextPage = await this.checkNextPage();
 
       // Procházení dalších stránek
-      while (hasNextPage && currentPage < 5) {
-        // Omezení na 5 stránek
+      while (hasNextPage) {
         try {
           await this.goToNextPage();
           currentPage++;

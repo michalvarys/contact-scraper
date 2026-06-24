@@ -120,7 +120,7 @@ export type WriteResponse = boolean;
 export type UnlinkResponse = boolean;
 
 /**
- * Contact data for res.partner
+ * Contact data for res.partner (used for user/auth operations only)
  */
 export interface ContactData {
   name: string;
@@ -204,6 +204,19 @@ export interface UtmMediumData {
  */
 export interface UtmSourceData {
   name: string;
+}
+
+/**
+ * Mailing contact data for mailing.contact model
+ */
+export interface MailingContactData {
+  name: string;
+  email?: string;
+  company_name?: string;
+  country_id?: number;
+  mobile?: string;
+  phone?: string;
+  tag_ids?: number[];
 }
 
 /**

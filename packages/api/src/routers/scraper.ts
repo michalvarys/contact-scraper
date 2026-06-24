@@ -10,7 +10,7 @@ export { ScraperTaskStatus, ScrapedLinkStatus };
 
 export const scraperRouter = router({
   getScraperTypes: publicProcedure.query(async () => {
-    return ['GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper', 'ZlateStrankyScraper'];
+    return ['MultiScraper', 'GoogleMapsScraper', 'FirmyCzScraper', 'AiGoogleMapsScraper', 'ZlateStrankyScraper'];
   }),
 
   getEmailFromWebsite: publicProcedure
@@ -363,6 +363,25 @@ export const scraperRouter = router({
           status: ScrapedLinkStatus.PENDING,
         },
       });
+    }),
+
+  invalidateLinks: publicProcedure
+    .input(
+      z.object({
+        linkIds: z.array(z.string()).min(1),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await prisma.scrapedLink.updateMany({
+        where: { id: { in: input.linkIds } },
+        data: {
+          status: ScrapedLinkStatus.PENDING,
+          companyId: null,
+          processedAt: null,
+          errorMessage: null,
+        },
+      });
+      return { count: result.count };
     }),
 
   rescrapLink: publicProcedure

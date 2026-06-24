@@ -32,7 +32,7 @@ model Company {
   scrapedAt     DateTime
   metadata      CompanyMetadata?
   metadataId    String?
-  odooPartnerId Int? // Odoo res.partner ID when synced
+  odooMailingContactId Int? // Odoo mailing.contact ID when synced
 }
 
 model CompanyMetadata {

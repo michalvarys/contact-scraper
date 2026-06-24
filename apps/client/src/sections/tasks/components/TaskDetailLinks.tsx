@@ -15,7 +15,7 @@ import {
     TableRow
 } from '@/components/atoms/Table';
 import Button from '@/components/atoms/Button';
-import { Loader2, Play, Plus, X, Eye, Filter, RefreshCw, RotateCcw } from 'lucide-react';
+import { Loader2, Play, Plus, X, Eye, Filter, RefreshCw, RotateCcw, Undo2 } from 'lucide-react';
 import { ScraperTask, ScrapedLinkStatus } from '@/types/scraper';
 import TaskStatusBadge from '@/sections/tasks/components/TaskStatusBadge';
 import { formatDate } from '../utils/date';
@@ -39,6 +39,8 @@ interface TaskDetailLinksProps {
     isBulkRescraping: boolean;
     onRestartFailed: () => void | Promise<void>;
     isRestartingFailed: boolean;
+    onInvalidateLinks: (linkIds: string[]) => void | Promise<void>;
+    isInvalidating: boolean;
 }
 
 export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
@@ -55,10 +57,15 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
     isBulkRescraping,
     onRestartFailed,
     isRestartingFailed,
+    onInvalidateLinks,
+    isInvalidating,
 }) => {
     // Stav pro sledování vybraného linku pro zobrazení dat
     const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
     const [showLinkData, setShowLinkData] = useState(false);
+
+    // Stav pro výběr odkazů (checkboxy)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // Stav pro filtrování podle stavů - pole vybraných stavů
     const [statusFilters, setStatusFilters] = useState<string[]>([]);
@@ -72,6 +79,28 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
     // Funkce pro zavření dialogu
     const handleCloseLinkData = () => {
         setShowLinkData(false);
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredLinks.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredLinks.map((l: any) => l.id)));
+        }
+    };
+
+    const handleInvalidate = async () => {
+        await onInvalidateLinks(Array.from(selectedIds));
+        setSelectedIds(new Set());
     };
 
     // Filtrování odkazů podle vybraných stavů
@@ -170,6 +199,26 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
                         )}
                     </Button>
 
+                    {selectedIds.size > 0 && (
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={handleInvalidate}
+                            disabled={isInvalidating}
+                        >
+                            {isInvalidating ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Invaliduji...
+                                </>
+                            ) : (
+                                <>
+                                    <Undo2 className="mr-2 h-4 w-4" />
+                                    Invalidovat vybrané ({selectedIds.size})
+                                </>
+                            )}
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="lg"
@@ -225,6 +274,14 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={filteredLinks.length > 0 && selectedIds.size === filteredLinks.length}
+                                        onChange={toggleSelectAll}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                </TableHead>
                                 <TableHead>ID</TableHead>
                                 <TableHead>Odkaz</TableHead>
                                 <TableHead>Stav</TableHead>
@@ -235,6 +292,14 @@ export const TaskDetailLinks: React.FC<TaskDetailLinksProps> = ({
                         <TableBody>
                             {filteredLinks.map((link) => (
                                 <TableRow key={link.id}>
+                                    <TableCell>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(link.id)}
+                                            onChange={() => toggleSelect(link.id)}
+                                            className="h-4 w-4 rounded border-gray-300"
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-mono text-xs">
                                         {link.id.substring(0, 8)}...
                                     </TableCell>

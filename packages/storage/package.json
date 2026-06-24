@@ -21,7 +21,7 @@
     "@contact-scraper/config-typescript": "workspace:*",
     "@types/jest": "^29.5.4",
     "@types/node": "^18.0.0",
-    "tsup": "^7.0.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.2.2"
   },
   "keywords": [],

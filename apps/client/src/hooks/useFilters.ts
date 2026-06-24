@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FilterBooleanType, SortByType, SortDirType } from '@contact-scraper/api/routers';
 
@@ -33,11 +33,9 @@ export function useFilters() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Aktualizace filtrů v URL
   const setFilters = useCallback(
     (newFilters: FiltersType) => {
-      const params = new URLSearchParams(searchParams.toString());
-      // Přidání nebo aktualizace nových filtrů
+      const params = new URLSearchParams(window.location.search);
       Object.entries(newFilters).forEach(([key, value]) => {
         if (value) {
           params.set(key, value);
@@ -45,16 +43,13 @@ export function useFilters() {
           params.delete(key);
         }
       });
-
-      // Aktualizace URL
       router.push(`${pathname}?${params.toString()}`);
     },
-    [pathname, router, searchParams],
+    [pathname, router],
   );
 
-  // Resetování všech filtrů
   const resetFilters = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set('sortDir', 'asc');
     params.set('sortBy', 'name');
     router.push(`${pathname}?${params.toString()}`);
@@ -62,11 +57,11 @@ export function useFilters() {
 
   const setFilter = useCallback(
     (name: string, value: string | string[]) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       params.set(name, typeof value === 'string' ? value : value.join(','));
       router.push(`${pathname}?${params.toString()}`);
     },
-    [searchParams],
+    [pathname, router],
   );
 
   const category = searchParams.get('category') || '';
@@ -78,13 +73,10 @@ export function useFilters() {
   const sortBy = (searchParams.get('sortBy') || 'name') as FilterSortType;
   const sortDir = (searchParams.get('sortDir') || 'asc') as FilterSortDirType;
   const limit = searchParams.get('limit') || '10';
-
-  // Duplicitní filtry
   const duplicates = searchParams.get('duplicates') || '';
 
-  return {
-    searchParams,
-    filters: {
+  const filters = useMemo(
+    () => ({
       category,
       hasWebsite,
       hasEmail,
@@ -95,7 +87,13 @@ export function useFilters() {
       sortDir,
       limit,
       duplicates,
-    },
+    }),
+    [category, hasWebsite, hasEmail, hasPhone, keyword, page, sortBy, sortDir, limit, duplicates],
+  );
+
+  return {
+    searchParams,
+    filters,
     setFilter,
     setFilters,
     resetFilters,

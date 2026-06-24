@@ -244,9 +244,11 @@ class GoogleMapsScraperWrapper {
 
 class FirmyCzScraperWrapper {
   private scraper: FirmyCzScraper;
+  private databaseManager: DatabaseManager;
 
   constructor(scraper: FirmyCzScraper, params: ScraperInitParams) {
     this.scraper = scraper;
+    this.databaseManager = new DatabaseManager();
   }
 
   /**
@@ -282,7 +284,12 @@ class FirmyCzScraperWrapper {
           const business = await this.scrapeLink(link);
           linkCallback?.(link, { success: true, business });
         } catch (error: any) {
-          linkCallback?.(link, { success: false, error: error.message });
+          const errMsg = error instanceof Error ? error.message : String(error);
+          await logCallback?.(
+            `Chyba při zpracování odkazu ${link}: ${errMsg}`,
+            LogLevel.ERROR,
+          );
+          linkCallback?.(link, { success: false, error: errMsg });
         }
       }
 
@@ -301,37 +308,25 @@ class FirmyCzScraperWrapper {
     }
   }
 
-  /**
-   * Pokračuje ve scrapování
-   * @param searchQuery Vyhledávací dotaz
-   * @param linkCallback Callback pro zpracování odkazu
-   * @param logCallback Callback pro logování
-   */
   async continueTask(
     taskId: string,
     searchQuery?: string,
     linkCallback?: LinkProcessCallback,
     logCallback?: LogCallback,
   ): Promise<any> {
-    // Zavoláme standardní scrape, jelikož původní scrapery nepodporují pokračování
     if (logCallback) {
       await logCallback(`Pokračuji ve scrapování AI Google Maps (restart)`);
     }
     return await this.scrape(taskId, searchQuery, linkCallback, logCallback);
   }
 
-  /**
-   * Zpracuje jeden konkrétní odkaz
-   * @param link Odkaz ke zpracování
-   */
   async scrapeLink(link: string): Promise<Business> {
-    return (await this.scraper.scrapeLink(link)) as unknown as Business;
+    const business = await this.scraper.scrapeLink(link) as unknown as Business;
+    const saved = await this.databaseManager.saveCompanyData(business);
+    return (saved as unknown as Business) ?? business;
   }
 }
 
-/**
- * Wrapper pro AiGoogleMapsScraper, který implementuje rozhraní pro práci s frontou
- */
 class AiGoogleMapsScraperWrapper {
   private scraper: AiGoogleMapsScraper;
 
@@ -339,12 +334,6 @@ class AiGoogleMapsScraperWrapper {
     this.scraper = scraper;
   }
 
-  /**
-   * Spustí scraper s podporou callbacků pro frontu
-   * @param searchQuery Vyhledávací dotaz
-   * @param linkCallback Callback pro zpracování odkazu
-   * @param logCallback Callback pro logování
-   */
   async scrape(
     taskId: string,
     searchQuery = '',
@@ -372,7 +361,12 @@ class AiGoogleMapsScraperWrapper {
           const business = await this.scrapeLink(link);
           linkCallback?.(link, { success: true, business });
         } catch (error: any) {
-          linkCallback?.(link, { success: false, error: error.message });
+          const errMsg = error instanceof Error ? error.message : String(error);
+          await logCallback?.(
+            `Chyba při zpracování odkazu ${link}: ${errMsg}`,
+            LogLevel.ERROR,
+          );
+          linkCallback?.(link, { success: false, error: errMsg });
         }
       }
 
@@ -483,7 +477,12 @@ export class ZlateStrankyScraperWrapper {
           const business = await this.scrapeLink(link);
           linkCallback?.(link, { success: true, business });
         } catch (error: any) {
-          linkCallback?.(link, { success: false, error: error.message });
+          const errMsg = error instanceof Error ? error.message : String(error);
+          await logCallback?.(
+            `Chyba při zpracování odkazu ${link}: ${errMsg}`,
+            LogLevel.ERROR,
+          );
+          linkCallback?.(link, { success: false, error: errMsg });
         }
       }
 
@@ -594,12 +593,15 @@ export class ZlateStrankyScraperProvider implements ScraperProvider {
   }
 }
 
+import { MultiScraperProvider } from './MultiScraperProvider';
+
 // Export poskytovatelů scraperů
 export const scraperProviders = {
   FirmyCzScraper: new FirmyCzScraperProvider(),
   GoogleMapsScraper: new GoogleMapsScraperProvider(),
   AiGoogleMapsScraper: new AiGoogleMapsScraperProvider(),
   ZlateStrankyScraper: new ZlateStrankyScraperProvider(),
+  MultiScraper: new MultiScraperProvider(),
 };
 
 export default scraperProviders;

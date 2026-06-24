@@ -183,6 +183,58 @@ export const companyRouter = router({
     };
   }),
 
+  // Získání všech ID firem odpovídajících filtrům (bez stránkování)
+  getAllIds: publicProcedure
+    .input(companyQueryParamsSchema)
+    .query(async ({ input, ctx }) => {
+      const where = createFilter(input);
+
+      const duplicates = (input.duplicates?.split(',') || []).filter(
+        Boolean,
+      ) as Prisma.CompanyScalarFieldEnum[];
+
+      if (duplicates.length) {
+        const duplicateConditions: Prisma.CompanyWhereInput[] = [];
+
+        for (const field of duplicates) {
+          const dupes = await ctx.prisma.company.groupBy({
+            by: [field],
+            where: {
+              [field]: {
+                not: null,
+              },
+            },
+            _count: {
+              [field]: true,
+            },
+          });
+
+          const duplicateValues = dupes
+            .filter((d) => d._count[field] > 1)
+            .map((d) => d[field]);
+
+          if (duplicateValues.length > 0) {
+            duplicateConditions.push({
+              [field]: {
+                in: duplicateValues,
+              },
+            });
+          }
+        }
+
+        if (duplicateConditions.length > 0) {
+          where.OR = duplicateConditions;
+        }
+      }
+
+      const companies = await ctx.prisma.company.findMany({
+        where,
+        select: { id: true },
+      });
+
+      return companies.map((c) => c.id);
+    }),
+
   // Hromadná aktualizace kategorie
   bulkUpdateCategory: publicProcedure
     .input(bulkUpdateCategorySchema)

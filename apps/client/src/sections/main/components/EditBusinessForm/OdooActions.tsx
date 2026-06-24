@@ -42,8 +42,8 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
 
   const handleSync = async () => {
     try {
-      const partnerId = await syncCompany(company.id);
-      setShowSuccess(`Kontakt synchronizován! Odoo ID: ${partnerId}`);
+      const mailingContactId = await syncCompany(company.id);
+      setShowSuccess(`Kontakt synchronizován! Odoo ID: ${mailingContactId}`);
       setTimeout(() => setShowSuccess(null), 3000);
       onUpdate?.();
     } catch (err: any) {
@@ -123,8 +123,8 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
         className="w-full flex items-center justify-between px-4 py-3"
       >
         <span className="font-semibold text-lg text-left">Odoo CRM</span>
-        {company?.odooPartnerId ? (
-          <Badge className="bg-green-100 text-green-800">✓ Odoo ID: {company.odooPartnerId}</Badge>
+        {company?.odooMailingContactId ? (
+          <Badge className="bg-green-100 text-green-800">✓ Odoo ID: {company.odooMailingContactId}</Badge>
         ) : (
           <Badge className="bg-gray-100 text-gray-600">Není v Odoo</Badge>
         )}
@@ -143,7 +143,7 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
           {error && <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
 
           {/* Sync Button */}
-          {!company.odooPartnerId && (
+          {!company.odooMailingContactId && (
             <div>
               <Button
                 type="button"
@@ -168,7 +168,7 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
           )}
 
           {/* Update Button - shown when already synced */}
-          {company.odooPartnerId && (
+          {company.odooMailingContactId && (
             <div>
               <Button
                 type="button"
@@ -241,7 +241,7 @@ export const OdooActions: React.FC<OdooActionsProps> = ({ company, onUpdate }) =
               </Button>
             </div>
             <p className="text-xs text-gray-600">
-              {company?.odooPartnerId
+              {company?.odooMailingContactId
                 ? 'Přidat kontakt do vybraného mailing seznamu'
                 : 'Kontakt bude automaticky nejdříve uložen do Varyshopu'}
             </p>

@@ -19,6 +19,23 @@ import {
 } from '../types/queue';
 import { Business } from '../types';
 
+function errorToString(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.name || 'Unknown error';
+  }
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const msg = (error as any).message || (error as any).code || (error as any).reason;
+    if (typeof msg === 'string') return msg;
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== '{}') return json;
+    } catch { /* ignore */ }
+    return Object.prototype.toString.call(error);
+  }
+  return String(error);
+}
+
 /**
  * Služba pro správu fronty úloh scraperů
  */
@@ -575,7 +592,7 @@ export class ScraperQueueService {
             await this.updateLink(existingLink.id, {
               status: ScrapedLinkStatus.FAILED,
               errorMessage:
-                result.error instanceof Error ? result.error.message : String(result.error),
+                errorToString(result.error),
             });
           }
         } else {
@@ -595,7 +612,7 @@ export class ScraperQueueService {
           } else {
             await this.updateLink(linkRecord.id, {
               errorMessage:
-                result.error instanceof Error ? result.error.message : String(result.error),
+                errorToString(result.error),
             });
           }
         }
@@ -629,13 +646,13 @@ export class ScraperQueueService {
       // Aktualizace stavu úlohy v případě chyby
       await this.updateTask(taskId, {
         status: ScraperTaskStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: errorToString(error),
         completedAt: new Date(),
       });
 
       // Logování chyby
       await this.log({
-        message: `Chyba při zpracování úlohy: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Chyba při zpracování úlohy: ${errorToString(error)}`,
         taskId,
         level: LogLevel.ERROR,
       });
@@ -727,12 +744,12 @@ export class ScraperQueueService {
       // Aktualizace stavu odkazu v případě chyby
       await this.updateLink(linkId, {
         status: ScrapedLinkStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: errorToString(error),
       });
 
       // Logování chyby
       await this.log({
-        message: `Chyba při zpracování odkazu ${link}: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Chyba při zpracování odkazu ${link}: ${errorToString(error)}`,
         taskId,
         level: LogLevel.ERROR,
       });
@@ -780,7 +797,7 @@ export class ScraperQueueService {
       } catch (error) {
         // Logování chyby
         await this.log({
-          message: `Chyba při opakování zpracování odkazu ${link.link}: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Chyba při opakování zpracování odkazu ${link.link}: ${errorToString(error)}`,
           taskId,
           level: LogLevel.ERROR,
         });
@@ -970,7 +987,7 @@ export class ScraperQueueService {
             await this.updateLink(existingLink.id, {
               status: ScrapedLinkStatus.FAILED,
               errorMessage:
-                result.error instanceof Error ? result.error.message : String(result.error),
+                errorToString(result.error),
             });
             return;
           }
@@ -994,7 +1011,7 @@ export class ScraperQueueService {
         if (!result.success) {
           await this.updateLink(linkRecord.id, {
             errorMessage:
-              result.error instanceof Error ? result.error.message : String(result.error),
+              errorToString(result.error),
           });
           return;
         }
@@ -1013,7 +1030,7 @@ export class ScraperQueueService {
           } catch (error) {
             // Logování chyby
             await this.log({
-              message: `Chyba při zpracování odkazu ${link.link}: ${error instanceof Error ? error.message : String(error)}`,
+              message: `Chyba při zpracování odkazu ${link.link}: ${errorToString(error)}`,
               taskId,
               level: LogLevel.ERROR,
             });
@@ -1047,12 +1064,12 @@ export class ScraperQueueService {
       // Aktualizace stavu úlohy v případě chyby
       await this.updateTask(taskId, {
         status: ScraperTaskStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: errorToString(error),
       });
 
       // Logování chyby
       await this.log({
-        message: `Chyba při pokračování v úloze: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Chyba při pokračování v úloze: ${errorToString(error)}`,
         taskId,
         level: LogLevel.ERROR,
       });

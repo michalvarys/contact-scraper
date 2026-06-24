@@ -36,50 +36,33 @@ export class ZlateStrankyScraper extends BaseScraper {
     if (!this.page) return null;
 
     const nextUrl = await this.page.evaluate(() => {
-      const pagination = document.querySelector('.pagination');
-      if (!pagination) {
-        return null;
-      }
+      const allLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]'));
 
-      const anchors = Array.from(
-        pagination.querySelectorAll<HTMLAnchorElement>('li:not(.disabled) a'),
-      );
-
-      const arrowCandidate = anchors.find((anchor) => {
-        const text = anchor.textContent?.trim() || '';
-        return text === '»' || text === '›';
+      const nextArrow = allLinks.find((a) => {
+        const text = a.textContent?.trim() || '';
+        return text === '>' || text === '›';
       });
-      if (arrowCandidate) {
-        return arrowCandidate.href || arrowCandidate.getAttribute('href');
+      if (nextArrow) {
+        return nextArrow.href;
       }
 
-      const activeLi = pagination.querySelector('li.active');
-      let cursor = activeLi?.nextElementSibling as HTMLElement | null;
-      while (cursor) {
-        if (cursor.classList.contains('disabled')) {
-          cursor = cursor.nextElementSibling as HTMLElement | null;
-          continue;
-        }
+      const currentUrl = window.location.pathname;
+      const currentPageMatch = currentUrl.match(/\/(\d+)(?:\?|$)/);
+      const currentPage = currentPageMatch ? parseInt(currentPageMatch[1], 10) : 1;
+      const nextPage = currentPage + 1;
 
-        const anchor = cursor.querySelector('a[href]') as HTMLAnchorElement | null;
-        if (anchor) {
-          const text = anchor.textContent?.trim() || '';
-          if (text && !['...', '«', '<', '›', '»', '>'].includes(text)) {
-            return anchor.href || anchor.getAttribute('href');
-          }
-        }
-
-        cursor = cursor.nextElementSibling as HTMLElement | null;
+      const pageLink = allLinks.find((a) => {
+        const href = a.getAttribute('href') || '';
+        return href.includes(`/${nextPage}`) && href.includes('/firmy/hledani/');
+      });
+      if (pageLink) {
+        return pageLink.href;
       }
 
       return null;
     });
 
-    if (!nextUrl) {
-      return null;
-    }
-
-    return nextUrl;
+    return nextUrl || null;
   }
 
   private async acceptCookiesOnce(): Promise<void> {
@@ -88,11 +71,31 @@ export class ZlateStrankyScraper extends BaseScraper {
     }
 
     try {
-      const cookieButton = await this.page.$(
-        'button.accept-cookies, button[id*="cookie"], button[class*="cookie"]',
-      );
-      if (cookieButton) {
-        await cookieButton.click();
+      const accepted = await this.page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a'));
+        const agreeLink = links.find((a) => {
+          const href = a.getAttribute('href') || '';
+          const text = a.textContent?.trim() || '';
+          return href.includes('/Cookies/Agree') || text === 'Souhlasím';
+        });
+        if (agreeLink) {
+          agreeLink.click();
+          return true;
+        }
+
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const cookieBtn = buttons.find((b) => {
+          const text = b.textContent?.trim() || '';
+          return text === 'Souhlasím' || text === 'Přijmout' || text === 'Přijmout vše';
+        });
+        if (cookieBtn) {
+          cookieBtn.click();
+          return true;
+        }
+        return false;
+      });
+
+      if (accepted) {
         await this.delay(500);
         this.cookiesAccepted = true;
       }
@@ -294,135 +297,82 @@ export class ZlateStrankyScraper extends BaseScraper {
     await this.delay(1000);
 
     const data = await this.page.evaluate(() => {
-      const getText = (selector: string): string | null => {
-        const element = document.querySelector(selector);
-        return element ? element.textContent?.trim() || null : null;
-      };
+      const name = document.querySelector('h1')?.textContent?.trim() || 'Unknown';
 
-      // Název firmy
-      const name = getText('h1') || 'Unknown';
-
-      // Adresa z microdata
-      const addressElement = document.querySelector('[itemprop="address"]');
-      let fullAddress = null;
-      let city = null;
-      let region = null;
-      let postalCode = null;
-
-      if (addressElement) {
-        const streetAddress = addressElement
-          .querySelector('[itemprop="streetAddress"]')
-          ?.getAttribute('content');
-        const addressLocality = addressElement
-          .querySelector('[itemprop="addressLocality"]')
-          ?.getAttribute('content');
-        const addressPostalCode = addressElement
-          .querySelector('[itemprop="postalCode"]')
-          ?.getAttribute('content');
-        const descriptionElement = addressElement.querySelector('[itemprop="description"]');
-
-        if (streetAddress && addressLocality && addressPostalCode) {
-          fullAddress = `${streetAddress}, ${addressPostalCode} ${addressLocality}`;
-          city = addressLocality;
-          postalCode = addressPostalCode;
-        } else if (descriptionElement) {
-          fullAddress = descriptionElement.textContent?.trim() || null;
-
-          if (fullAddress) {
-            const postalMatch = fullAddress.match(/(\d{3}\s*\d{2})\s+([^,\n<]+)/);
-            if (postalMatch) {
-              postalCode = postalMatch[1].replace(/\s+/g, ' ');
-              city = postalMatch[2].trim();
-            }
-
-            const regionMatch = fullAddress.match(/okres\s+([^,\n<]+)/i);
-            if (regionMatch) {
-              region = regionMatch[1].trim();
-            }
-          }
-        }
+      // Email z mailto: odkazu
+      let email: string | null = null;
+      const mailtoEl = document.querySelector('a[href^="mailto:"]');
+      if (mailtoEl) {
+        const href = mailtoEl.getAttribute('href') || '';
+        email = href.replace('mailto:', '').split('?').shift() || null;
       }
 
-      // Telefony
-      const phoneElements = document.querySelectorAll('[itemprop="telephone"]');
-      let phone = null;
-      if (phoneElements.length > 0) {
-        phone = phoneElements[0].textContent?.trim() || null;
+      // Telefon — hledáme formát +420 nebo čísla s mezerami
+      let phone: string | null = null;
+      const telLink = document.querySelector('a[href^="tel:"]');
+      if (telLink) {
+        phone = telLink.textContent?.trim() || telLink.getAttribute('href')?.replace('tel:', '') || null;
       }
-
-      // Email
-      const emailElements = document.querySelectorAll('a[href^="mailto:"]');
-      let email = null;
-      if (emailElements.length > 0) {
-        const href = emailElements[0].getAttribute('href');
-        if (href && href.startsWith('mailto:')) {
-          email = href.substring(7);
-        }
-      }
-
-      // Web
-      const websiteElements = document.querySelectorAll('[itemprop="url"]');
-      let website = null;
-      for (let i = 0; i < websiteElements.length; i++) {
-        const el = websiteElements[i];
-        if (el.tagName === 'A') {
-          const href = (el as HTMLAnchorElement).href;
-          if (href && !href.includes('zlatestranky.cz')) {
-            website = href;
+      if (!phone) {
+        const strongElements = Array.from(document.querySelectorAll('strong, a, span'));
+        for (const el of strongElements) {
+          const text = el.textContent?.trim() || '';
+          if (/^\+?420[\s\d]{9,}/.test(text) || /^\d{3}\s*\d{3}\s*\d{3}$/.test(text)) {
+            phone = text;
             break;
           }
         }
       }
 
-      // Kategorie
-      const categoryElements = document.querySelectorAll('.tag, a[href*="/firmy/rubrika/"]');
-      const categories: string[] = Array.from(categoryElements)
-        .map((el) => el.textContent?.trim())
-        .filter((text): text is string => Boolean(text));
-
-      // Souřadnice
-      let latitude = null;
-      let longitude = null;
-      const mapElement = document.querySelector('[data-centerpoi]');
-      if (mapElement) {
-        try {
-          const centerPoi = mapElement.getAttribute('data-centerpoi');
-          if (centerPoi) {
-            const poiData = JSON.parse(centerPoi);
-            if (poiData.lat && poiData.lng) {
-              latitude = parseFloat(poiData.lat);
-              longitude = parseFloat(poiData.lng);
-            }
+      // Website — odkaz mimo zlatestranky.cz
+      let website: string | null = null;
+      const allLinks = Array.from(document.querySelectorAll('a[href]'));
+      for (const a of allLinks) {
+        const href = (a as HTMLAnchorElement).href;
+        if (
+          href &&
+          !href.includes('zlatestranky.cz') &&
+          !href.includes('google.') &&
+          !href.includes('facebook.') &&
+          !href.startsWith('mailto:') &&
+          !href.startsWith('tel:') &&
+          !href.startsWith('javascript:') &&
+          (href.startsWith('http://') || href.startsWith('https://'))
+        ) {
+          const text = a.textContent?.trim() || '';
+          if (text && (text.includes('www.') || text.includes('.cz') || text.includes('.com'))) {
+            website = href.split('?').shift() || href;
+            break;
           }
-        } catch (e) {
-          console.error('Error parsing map coordinates:', e);
         }
       }
 
-      // Popis
-      const descriptionElement = document.querySelector('.company-description, .description');
-      const description = descriptionElement
-        ? descriptionElement.textContent?.trim() || null
-        : null;
+      // Adresa — text obsahující PSČ (formát XXX XX)
+      let address: string | null = null;
+      const bodyText = document.body.innerText;
+      const addressMatch = bodyText.match(/([^\n]+\d{3}\s*\d{2}\s+[^\n]+)/);
+      if (addressMatch) {
+        address = addressMatch[1].trim();
+      }
+
+      // Kategorie
+      const categoryLinks = Array.from(document.querySelectorAll('a[href*="/firmy/rubrika/"]'));
+      const categories = categoryLinks
+        .map((el) => el.textContent?.trim())
+        .filter((text): text is string => Boolean(text));
+
+      const uniqueCategories = [...new Set(categories)];
 
       return {
         name,
-        description,
-        address: fullAddress,
-        city,
-        region,
-        postalCode,
-        country: 'Česká republika',
+        address,
         phone,
         email,
         website,
-        categories: categories || [],
-        latitude,
-        longitude,
+        categories: uniqueCategories,
       };
     });
 
-    // Pokud nemáme email a máme website, zkusíme najít email
     if (!data.email && data.website) {
       try {
         const email = await getEmailFromWebsite(data.website);
@@ -433,33 +383,18 @@ export class ZlateStrankyScraper extends BaseScraper {
         console.log('Could not fetch email from website:', error);
       }
     }
-    const {
-      address,
-      city,
-      country,
-      description,
-      latitude,
-      longitude,
-      postalCode,
-      region,
-      ...rest
-    } = data;
 
-    // Přidání scrapedAt
     const companyData = {
-      ...rest,
-      address: `${address}, ${city} ${postalCode}, ${region || ''}, ${country}`,
+      ...data,
+      address: data.address || '',
       link,
       rating: null,
       reviewsCount: 0,
-      // openingHours: null,
-      // priceLevel: null,
       scrapedAt: new Date(),
     };
 
     console.log(`Scraped: ${companyData.name}`);
 
-    // Uložení do databáze a vrácení s ID
     const savedCompany = await this.databaseManager.saveCompanyData(companyData);
     return savedCompany as unknown as Business;
   }

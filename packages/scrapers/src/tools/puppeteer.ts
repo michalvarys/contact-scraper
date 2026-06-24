@@ -1,12 +1,16 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 
 export async function launchBrowser(headless: boolean = true) {
-  // return puppeteer.connect({
-  //   browserWSEndpoint: `ws:puppeteer:3000?token=puppeteer123`
-  // })
+  const browserWSEndpoint = process.env.BROWSER_WS_ENDPOINT;
+  if (browserWSEndpoint) {
+    return puppeteer.connect({
+      browserWSEndpoint,
+      protocolTimeout: 120000,
+    });
+  }
 
   return puppeteer.launch({
-    headless: headless ? 'new' : false,
+    headless: headless ? true : false,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     ignoreDefaultArgs: ['--disable-extensions'],
     args: [
@@ -16,8 +20,6 @@ export async function launchBrowser(headless: boolean = true) {
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
       '--no-first-run',
-      '--no-zygote',
-      '--single-process',
       '--disable-extensions',
     ],
     protocolTimeout: 120000,

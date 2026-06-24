@@ -153,13 +153,13 @@ router.post("/companies/:id/sync", async (req: Request, res: Response) => {
     const { id } = req.params;
     const service = getOdooService();
 
-    const partnerId = await service.syncCompanyToOdoo(id);
+    const mailingContactId = await service.syncCompanyToOdoo(id);
 
     res.json({
       success: true,
       data: {
         companyId: id,
-        odooPartnerId: partnerId,
+        odooMailingContactId: mailingContactId,
       },
       message: "Company synced to Odoo successfully",
     });
@@ -219,15 +219,15 @@ router.post("/companies/sync-bulk", async (req: Request, res: Response) => {
     }
 
     const service = getOdooService();
-    const partnerIds = await service.syncCompaniesToOdoo(companyIds);
+    const mailingContactIds = await service.syncCompaniesToOdoo(companyIds);
 
     res.json({
       success: true,
       data: {
-        syncedCount: partnerIds.length,
-        partnerIds,
+        syncedCount: mailingContactIds.length,
+        mailingContactIds,
       },
-      message: `${partnerIds.length} companies synced to Odoo successfully`,
+      message: `${mailingContactIds.length} companies synced to Odoo successfully`,
     });
   } catch (error: any) {
     console.error("Error syncing companies to Odoo:", error);
@@ -298,8 +298,8 @@ router.get("/companies/:id/status", async (req: Request, res: Response) => {
     const service = getOdooService();
 
     const isSynced = await service.isCompanySynced(id);
-    const partnerId = isSynced
-      ? await service.getCompanyOdooPartnerId(id)
+    const mailingContactId = isSynced
+      ? await service.getCompanyOdooMailingContactId(id)
       : null;
 
     res.json({
@@ -307,7 +307,7 @@ router.get("/companies/:id/status", async (req: Request, res: Response) => {
       data: {
         companyId: id,
         isSynced,
-        odooPartnerId: partnerId,
+        odooMailingContactId: mailingContactId,
       },
     });
   } catch (error: any) {
@@ -396,11 +396,13 @@ router.post(
       }
 
       const service = getOdooService();
+      console.log(`[Odoo] Bulk add: ${companyIds.length} companies to list ${mailingListId}`);
       const subscriptionIds = await service.addCompaniesToMailingList(
         companyIds,
         parseInt(mailingListId)
       );
 
+      console.log(`[Odoo] Bulk add complete: ${subscriptionIds.length} added`);
       res.json({
         success: true,
         data: {
@@ -411,11 +413,11 @@ router.post(
         message: `${subscriptionIds.length} companies added to mailing list successfully`,
       });
     } catch (error: any) {
-      console.error("Error adding companies to mailing list:", error);
+      console.error("[Odoo] Bulk add error:", error?.message || error);
       res.status(500).json({
         success: false,
         message: "Failed to add companies to mailing list",
-        error: error.message,
+        error: error?.message || String(error),
       });
     }
   }

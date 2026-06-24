@@ -79,47 +79,41 @@ describe('FirmyCzScraper', () => {
   let scraper: FirmyCzScraper;
 
   beforeEach(() => {
-    // Resetování mocků před každým testem
     jest.clearAllMocks();
-
-    // Vytvoření instance scraperu
-    scraper = new FirmyCzScraper('autoservis', 'Plzeň', false);
+    scraper = new FirmyCzScraper({ searchQuery: 'autoservis' });
   });
 
   afterEach(async () => {
-    // Uzavření browseru po každém testu
-    await scraper.closeBrowser();
+    await scraper.close();
   });
 
   test('měl by inicializovat scraper s výchozími hodnotami', () => {
     expect(scraper.baseUrl).toBe('https://www.firmy.cz/');
-    expect(scraper.industry).toBe('autoservis');
-    expect(scraper.region).toBe('Plzeň');
   });
 
   test('měl by správně sestavit URL stránky', () => {
-    // @ts-ignore - přístup k protected metodě pro testování
-    const url1 = scraper.buildPageUrl(1);
-    // @ts-ignore - přístup k protected metodě pro testování
-    const url2 = scraper.buildPageUrl(2);
-    // @ts-ignore - přístup k protected metodě pro testování
+    // @ts-ignore
+    const url1 = scraper.buildPageUrl(1, 'autoservis');
+    // @ts-ignore
+    const url2 = scraper.buildPageUrl(2, 'autoservis');
+    // @ts-ignore
     const url3 = scraper.buildPageUrl(1, 'autoservis Praha');
 
-    expect(url1).toBe('https://www.firmy.cz/?q=autoservis%20Plze%C5%88');
-    expect(url2).toBe('https://www.firmy.cz/?q=autoservis%20Plze%C5%88&page=2');
+    expect(url1).toBe('https://www.firmy.cz/?q=autoservis');
+    expect(url2).toBe('https://www.firmy.cz/?q=autoservis&page=2');
     expect(url3).toBe('https://www.firmy.cz/?q=autoservis%20Praha');
   });
 
   test('měl by správně extrahovat odkazy na firmy', () => {
     const html = `
       <div>
-        <a href="/detail/12345-autoservis-rychly-plzen.html" class="companyTitle statCompanyDetail">Autoservis Rychlý</a>
-        <a href="https://c.seznam.cz/click?adurl=https://www.example.com" class="companyTitle statCompanyDetail">Reklama</a>
-        <a href="/detail/67890-kvetinarstvi-orchidej-plzen.html" class="companyTitle statCompanyDetail">Květinářství Orchidej</a>
+        <a href="/detail/12345-autoservis-rychly-plzen.html">Autoservis Rychlý</a>
+        <a href="https://c.seznam.cz/click?adurl=https://www.example.com">Reklama</a>
+        <a href="/detail/67890-kvetinarstvi-orchidej-plzen.html">Květinářství Orchidej</a>
       </div>
     `;
 
-    // @ts-ignore - přístup k protected metodě pro testování
+    // @ts-ignore
     const links = scraper.extractCompanyLinks(html);
 
     expect(links).toHaveLength(2);
@@ -128,13 +122,13 @@ describe('FirmyCzScraper', () => {
   });
 
   test('měl by správně scrapovat detaily firmy', async () => {
-    // @ts-ignore - přístup k protected metodě pro testování
+    // @ts-ignore
     const businessDetails = await scraper.scrapeBusinessDetails(
       'https://www.firmy.cz/detail/12345-autoservis-rychly-plzen.html',
     );
 
     expect(businessDetails.name).toBe('Autoservis Rychlý');
-    expect(businessDetails.address).toBe('Dlouhá 789, 301 00 Plzeň');
+    expect(businessDetails.address).toBe('Patočkova 4/6, 169 00 Praha, Střešovice');
     expect(businessDetails.email).toBe('servis@autoservisrychly.cz');
     expect(businessDetails.phone).toBe('+420 345 678 901');
     expect(businessDetails.website).toBe('https://www.autoservisrychly.cz');
@@ -144,19 +138,19 @@ describe('FirmyCzScraper', () => {
   test('měl by správně detekovat další stránku', () => {
     const htmlWithNextPage = `
       <div>
-        <a id="nextBtn" href="?page=2">Další</a>
+        <a href="?page=2">›</a>
       </div>
     `;
 
     const htmlWithoutNextPage = `
       <div>
-        <a id="prevBtn" href="?page=1">Předchozí</a>
+        <a href="?page=1">‹</a>
       </div>
     `;
 
-    // @ts-ignore - přístup k protected metodě pro testování
+    // @ts-ignore
     expect(scraper.hasNextPage(htmlWithNextPage)).toBe(true);
-    // @ts-ignore - přístup k protected metodě pro testování
+    // @ts-ignore
     expect(scraper.hasNextPage(htmlWithoutNextPage)).toBe(false);
   });
 });

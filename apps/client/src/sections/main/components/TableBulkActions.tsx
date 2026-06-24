@@ -1,25 +1,42 @@
 "use client"
-import { useFilters } from "@/hooks/useFilters";
 import { useBusinessTable } from "../contexts/BusinessTableContext";
 import Button from "@/components/atoms/Button";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import ConfirmButton from "@/components/atoms/ConfirmButton";
-import { Tag, Trash2 } from "lucide-react";
+import { CheckSquare, Square, Tag, Trash2 } from "lucide-react";
 import { useBusinessMutations } from "@/hooks";
+import { useFilters } from "@/hooks/useFilters";
+import { trpc } from "@/trpc/trpc";
 import BulkCategoryChange from "./BulkCategoryChange";
 
 export function TableBulkActions() {
-    const { selectedRows, table } = useBusinessTable();
+    const { selectedRows, table, pagination, isAllSelected, setIsAllSelected } = useBusinessTable();
     const [bulkCategoryChangeOpen, setBulkCategoryChangeOpen] = useState(false);
     const { bulkUpdateCategory } = useBusinessMutations();
     const { bulkDelete } = useBusinessMutations();
+    const { filters } = useFilters();
+    const { data: allIds, isFetching: isAllIdsFetching } = trpc.company.getAllIds.useQuery(filters, {
+        enabled: isAllSelected,
+        keepPreviousData: false,
+    });
+
+    const getEffectiveIds = useCallback((): string[] => {
+        if (isAllSelected && allIds && !isAllIdsFetching) {
+            return allIds;
+        }
+        return selectedRows.map(business => business.id);
+    }, [isAllSelected, allIds, isAllIdsFetching, selectedRows]);
 
     if (selectedRows.length === 0) {
         return null
     }
 
+    const allIdsReady = isAllSelected && allIds && !isAllIdsFetching;
+    const effectiveCount = isAllSelected ? (allIdsReady ? allIds.length : pagination.totalItems) : selectedRows.length;
+    const allPageSelected = table.getIsAllPageRowsSelected();
+
     const handleApplyBulkCategoryChange = (categoryId: number) => {
-        const selectedIds = selectedRows.map(business => business.id);
+        const selectedIds = getEffectiveIds();
         if (selectedIds.length > 0) {
             bulkUpdateCategory.mutate(
                 { businessIds: selectedIds, categoryId },
@@ -27,14 +44,12 @@ export function TableBulkActions() {
                     onSuccess: () => {
                         setBulkCategoryChangeOpen(false);
                         table.resetRowSelection();
-
-                        // remove records from table
+                        setIsAllSelected(false);
                     }
                 }
             );
         }
     };
-
 
     const handleBulkCategoryChangeClick = () => {
         if (selectedRows.length > 0) {
@@ -43,29 +58,62 @@ export function TableBulkActions() {
     };
 
     const handleBulkDelete = () => {
-        const selectedIds = selectedRows.map(business => business.id);
+        const selectedIds = getEffectiveIds();
         if (selectedIds.length > 0) {
             bulkDelete.mutate({ businessIds: selectedIds }, {
                 onSuccess: () => {
                     table.resetRowSelection();
-
-                    // remove records from table
+                    setIsAllSelected(false);
                 }
             });
         }
     };
+
+    const handleToggleAllRecords = () => {
+        if (isAllSelected) {
+            setIsAllSelected(false);
+        } else {
+            table.toggleAllPageRowsSelected(true);
+            setIsAllSelected(true);
+        }
+    };
+
     return (
         <>
             <div className="bg-gray-100 p-3 rounded-lg flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <div>
-                        Vybráno: <strong>{selectedRows.length}</strong> záznamů
+                        Vybráno: <strong>{effectiveCount}</strong> záznamů
+                        {isAllSelected && (isAllIdsFetching ? " (načítám...)" : " (všechny)")}
                     </div>
+
+                    {allPageSelected && pagination.totalItems > selectedRows.length && (
+                        <Button
+                            variant={isAllSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={handleToggleAllRecords}
+                            className="flex items-center gap-1"
+                        >
+                            {isAllSelected ? (
+                                <>
+                                    <Square className="h-4 w-4" />
+                                    Jen tato stránka ({selectedRows.length})
+                                </>
+                            ) : (
+                                <>
+                                    <CheckSquare className="h-4 w-4" />
+                                    Vybrat všech {pagination.totalItems}
+                                </>
+                            )}
+                        </Button>
+                    )}
+
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                             table.resetRowSelection();
+                            setIsAllSelected(false);
                         }}
                         className="flex items-center gap-1"
                     >
@@ -87,7 +135,7 @@ export function TableBulkActions() {
                         size="sm"
                         onConfirm={handleBulkDelete}
                         confirmTitle="Smazat vybrané firmy"
-                        confirmDescription={`Opravdu chcete smazat ${selectedRows.length} vybraných firem? Tato akce je nevratná.`}
+                        confirmDescription={`Opravdu chcete smazat ${effectiveCount} vybraných firem? Tato akce je nevratná.`}
                         confirmButtonText="Smazat"
                         confirmButtonVariant="destructive"
                         className="flex items-center gap-1"

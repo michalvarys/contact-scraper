@@ -1,5 +1,6 @@
 import { BaseScraper } from './BaseScraper';
 import { getEmailFromWebsite } from './tools/email';
+import { launchBrowser } from './tools/puppeteer';
 import { Business, ScraperOptions } from './types';
 
 export class GoogleMapsScraper extends BaseScraper {
@@ -13,10 +14,58 @@ export class GoogleMapsScraper extends BaseScraper {
     });
   }
 
-  /**
-   * Nastavení ID úlohy
-   * @param taskId ID úlohy
-   */
+  private async handleGoogleConsent(): Promise<void> {
+    if (!this.page) return;
+    try {
+      const url = this.page.url();
+      const isConsentPage = url.includes('consent.google') || url.includes('accounts.google');
+
+      const clicked = await this.page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const accept = buttons.find((b) => {
+          const text = b.textContent?.trim() || '';
+          const label = b.getAttribute('aria-label') || '';
+          return /accept all|souhlasím|přijmout vše|akzeptieren|reject all|odmítnout vše/i.test(text) ||
+                 /accept|souhlasím|reject|odmítnout/i.test(label);
+        });
+        if (accept) { accept.click(); return true; }
+
+        const forms = Array.from(document.querySelectorAll('form[action*="consent"]'));
+        for (const form of forms) {
+          const btns = Array.from(form.querySelectorAll('button'));
+          for (const btn of btns) {
+            const text = btn.textContent?.trim() || '';
+            if (/přijmout|souhlasím|accept|odmítnout|reject/i.test(text)) {
+              btn.click();
+              return true;
+            }
+          }
+          if (btns.length > 0) { btns[0].click(); return true; }
+        }
+        return false;
+      });
+
+      if (clicked || isConsentPage) {
+        await this.delay(3000);
+        await this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+      }
+    } catch {
+      // no consent dialog
+    }
+  }
+
+  private async findSearchInput() {
+    if (!this.page) return null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const input = await this.page.$('#searchboxinput') || await this.page.$('input[name="q"]');
+      if (input) return input;
+      await this.handleGoogleConsent();
+      await this.delay(2000);
+    }
+    return null;
+  }
+
   setTaskId(taskId: string) {
     this.taskId = taskId;
   }
@@ -56,12 +105,14 @@ export class GoogleMapsScraper extends BaseScraper {
 
     return await this.page.evaluate(() => {
       const links = Array.from(
-        document.querySelectorAll('a[href^="https://www.google.com/maps/"]'),
+        document.querySelectorAll('a[href*="google.com/maps/place/"], a[href*="google.cz/maps/place/"]'),
       );
 
-      return links
+      const hrefs = links
         .map((link) => link.getAttribute('href'))
         .filter((href): href is string => href !== null && !href.includes('/dir/'));
+
+      return [...new Set(hrefs)];
     });
   }
 
@@ -74,117 +125,134 @@ export class GoogleMapsScraper extends BaseScraper {
         timeout: 30000,
       });
 
-      // Wait for business info to load
+      await this.handleGoogleConsent();
       await this.page.waitForSelector('h1', { timeout: 10000 });
 
-      // Extract business details
-      const data = await this.page.evaluate(() => {
-        function __name(target: any, value: any) {
-          try {
-            Object.defineProperty(target, 'name', { value, configurable: true });
-          } catch {
-            // ignore if we cannot redefine the name
-          }
-          return target;
-        }
+      const isConsent = await this.page.evaluate(() => {
+        const h1 = document.querySelector('h1');
+        const text = h1?.textContent?.trim() || '';
+        return /než budete pokračovat|before you continue|bevor sie fortfahren/i.test(text);
+      });
 
-        function getText(selector: string) {
-          const element = document.querySelector(selector);
+      if (isConsent) {
+        await this.handleGoogleConsent();
+        await this.delay(3000);
+        const stillConsent = await this.page.evaluate(() => {
+          const h1 = document.querySelector('h1');
+          return /než budete pokračovat|before you continue|bevor sie fortfahren/i.test(h1?.textContent?.trim() || '');
+        });
+        if (stillConsent) {
+          throw new Error('Stuck on Google consent page');
+        }
+        await this.page.waitForSelector('h1', { timeout: 10000 });
+      }
+
+      const data: any = await this.page.evaluate(`(function() {
+        function getText(selector) {
+          var element = document.querySelector(selector);
           return element ? element.textContent || '' : '';
         }
 
         function getAddress() {
-          const buttons = Array.from(document.querySelectorAll('button'));
-          for (const btn of buttons) {
-            const ariaLabel = btn.getAttribute('aria-label');
-            if (ariaLabel && ariaLabel.includes('Adresa:')) {
-              return ariaLabel.replace('Adresa:', '').trim();
+          var buttons = Array.from(document.querySelectorAll('button'));
+          for (var i = 0; i < buttons.length; i++) {
+            var ariaLabel = buttons[i].getAttribute('aria-label') || '';
+            if (/Adresa:|Address:/i.test(ariaLabel)) {
+              return ariaLabel.replace(/Adresa:|Address:/i, '').trim();
             }
           }
+          var addrEl = document.querySelector('[data-item-id="address"]');
+          if (addrEl) return addrEl.textContent.trim() || '';
           return '';
         }
 
         function getPhone() {
-          const directPhone =
-            document
-              .querySelector('a[href^="tel:"]')
-              ?.getAttribute('href')
-              ?.replace('tel:', '')
-              .trim() ||
-            document.querySelector('[data-item-id^="phone"]')?.textContent?.trim() ||
-            '';
-          if (directPhone) {
-            return directPhone;
+          var telLink = document.querySelector('a[href^="tel:"]');
+          if (telLink) {
+            var href = telLink.getAttribute('href') || '';
+            return href.replace('tel:', '').trim() || null;
           }
-
-          const buttons = Array.from(document.querySelectorAll('button'));
-          for (const btn of buttons) {
-            const ariaLabel = btn.getAttribute('aria-label') || '';
-            if (/Telefon:|Volat/.test(ariaLabel)) {
-              const match = ariaLabel.match(/(?:Telefon:|Volat)[:\s]*([+\d\s()-]+)/);
-              if (match) {
-                return match[1].trim();
-              }
+          var phoneEl = document.querySelector('[data-item-id^="phone"]');
+          if (phoneEl) return phoneEl.textContent.trim() || null;
+          var buttons = Array.from(document.querySelectorAll('button'));
+          for (var i = 0; i < buttons.length; i++) {
+            var ariaLabel = buttons[i].getAttribute('aria-label') || '';
+            if (/Telefon:|Phone:|Volat/i.test(ariaLabel)) {
+              var match = ariaLabel.match(/[+\\d][\\d\\s()-]{6,}/);
+              if (match) return match[0].trim();
             }
           }
-
           return null;
         }
 
         function getWebsite() {
-          const directWebsite =
-            document.querySelector('[data-item-id="authority"]')?.getAttribute('href') || '';
-          if (directWebsite && !directWebsite.includes('google')) {
-            return directWebsite;
+          var authority = document.querySelector('[data-item-id="authority"]');
+          if (authority) {
+            var href = authority.getAttribute('href') || '';
+            if (href && href.indexOf('google') === -1) return href.split('?')[0];
           }
-
-          const regions = document.querySelectorAll('[role=region] a[href]');
-          for (let index = 0; index < regions.length; index++) {
-            const anchor = regions.item(index);
-            const hrefValue = anchor.getAttribute('href');
-            if (!hrefValue) continue;
-            const [cleanHref] = hrefValue.split('?');
+          var allLinks = Array.from(document.querySelectorAll('a[href]'));
+          for (var i = 0; i < allLinks.length; i++) {
+            var href = allLinks[i].getAttribute('href') || '';
             if (
-              cleanHref &&
-              !cleanHref.includes('google') &&
-              !cleanHref.startsWith('/maps') &&
-              !cleanHref.startsWith('tel:')
+              href.indexOf('http') === 0 &&
+              href.indexOf('google.') === -1 &&
+              href.indexOf('gstatic.') === -1 &&
+              href.indexOf('tel:') !== 0 &&
+              href.indexOf('mailto:') !== 0
             ) {
-              return cleanHref;
+              return href.split('?')[0];
             }
           }
-
           return null;
         }
 
         function getEmail() {
-          const emailRegex = /[\w.-]+@[\w.-]+\.\w+/;
-          const allText = document.body.innerText;
-          const match = allText.match(emailRegex);
+          var mailtoLink = document.querySelector('a[href^="mailto:"]');
+          if (mailtoLink) {
+            var href = mailtoLink.getAttribute('href') || '';
+            return href.replace('mailto:', '').split('?')[0] || null;
+          }
+          var emailRegex = /[\\w.-]+@[\\w.-]+\\.\\w{2,}/;
+          var allText = document.body.innerText;
+          var match = allText.match(emailRegex);
           return match ? match[0] : null;
         }
 
         function getRating() {
-          const ratingElement = document.querySelector('[aria-label*="hvězdičkami"]');
-          if (!ratingElement) {
-            return null;
+          var ariaElements = Array.from(document.querySelectorAll('[aria-label]'));
+          for (var i = 0; i < ariaElements.length; i++) {
+            var label = ariaElements[i].getAttribute('aria-label') || '';
+            if (/hv\\u011bzdic|stars?/i.test(label)) {
+              var match = label.match(/[\\d,.]+/);
+              if (match) return match[0];
+            }
           }
-          const aria = ratingElement.getAttribute('aria-label') || '';
-          const match = aria.match(/[\d,.]+/);
-          return match ? match[0] : null;
+          return null;
         }
 
         function getReviewsCount() {
-          const reviewsText =
-            document.querySelector('[aria-label*="recenzí"]')?.getAttribute('aria-label') || '';
-          const match = reviewsText.match(/(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
+          var ariaElements = Array.from(document.querySelectorAll('[aria-label]'));
+          for (var i = 0; i < ariaElements.length; i++) {
+            var label = ariaElements[i].getAttribute('aria-label') || '';
+            if (/recenz|review/i.test(label)) {
+              var match = label.match(/(\\d[\\d\\s]*)/);
+              if (match) return parseInt(match[1].replace(/\\s/g, ''), 10);
+            }
+          }
+          return 0;
         }
 
         function getCategories() {
-          const categoryButton = document.querySelector('button.DkEaL');
-          if (categoryButton) {
-            return [categoryButton.textContent || ''];
+          var buttons = Array.from(document.querySelectorAll('button'));
+          for (var i = 0; i < buttons.length; i++) {
+            var parent = buttons[i].closest('[role="main"]');
+            if (parent) {
+              var text = (buttons[i].textContent || '').trim();
+              if (text && text.length < 50 && text.indexOf('\\n') === -1 && buttons[i].offsetTop < 300) {
+                return [text];
+              }
+            }
           }
           return [];
         }
@@ -196,16 +264,20 @@ export class GoogleMapsScraper extends BaseScraper {
           email: getEmail(),
           phone: getPhone(),
           website: getWebsite(),
-          rating: getRating() ?? undefined,
+          rating: getRating() || undefined,
           reviewsCount: getReviewsCount(),
           categories: getCategories(),
           link: window.location.href,
-          scrapedAt: new Date().toISOString(),
+          scrapedAt: new Date().toISOString()
         };
-      });
+      })()`);
 
       if (!data.name?.trim()) {
         throw new Error('Missing business name');
+      }
+
+      if (/než budete pokračovat|before you continue|bevor sie fortfahren/i.test(data.name)) {
+        throw new Error('Consent page detected instead of business detail');
       }
 
       if (data.website && !data.email) {
@@ -220,14 +292,43 @@ export class GoogleMapsScraper extends BaseScraper {
   }
 
   public async getBusinessData(link: string): Promise<Business> {
-    await this.initializeBrowser();
-
-    if (!this.page) {
-      throw new Error('Page not initialized');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await this.ensurePage();
+        const data = await this.scrapeBusinessDetails(link);
+        return this.taskId ? this.enrichBusinessData(data, link) : data;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt === 0 && (msg.includes('main frame') || msg.includes('Consent page') || msg.includes('Session closed'))) {
+          console.log(`GoogleMaps: retrying ${link} with fresh page (${msg})`);
+          await this.resetPage();
+          continue;
+        }
+        throw err;
+      }
     }
+    throw new Error('Unreachable');
+  }
 
-    const data = await this.scrapeBusinessDetails(link);
-    return this.taskId ? this.enrichBusinessData(data, link) : data;
+  private async ensurePage(): Promise<void> {
+    if (!this.browser) {
+      this.browser = await launchBrowser(this.headless);
+    }
+    if (!this.page || this.page.isClosed()) {
+      this.page = await this.browser.newPage();
+      await this.loadCookies();
+      await this.page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      );
+    }
+  }
+
+  private async resetPage(): Promise<void> {
+    if (this.page) {
+      try { await this.page.close(); } catch {}
+      this.page = null;
+    }
+    await this.ensurePage();
   }
 
   /**
@@ -246,23 +347,32 @@ export class GoogleMapsScraper extends BaseScraper {
         throw new Error('Page not initialized');
       }
 
-      // Navigate to Google Maps
-      await this.page.goto(this.baseUrl);
+      await this.page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await this.delay(2000);
+      await this.handleGoogleConsent();
 
-      // Wait for search input field
-      await this.page.waitForSelector('#searchboxinput');
+      const searchInput = await this.findSearchInput();
+      if (!searchInput) {
+        throw new Error('Search input not found on Google Maps');
+      }
 
-      // Enter search query
-      await this.page.type('#searchboxinput', query);
+      await searchInput.click();
+      await searchInput.type(query);
       await this.page.keyboard.press('Enter');
 
-      // Wait for results to load
-      await this.page.waitForSelector('[role="main"]', { timeout: 15000 });
+      const feedFound = await this.page.waitForSelector('[role="feed"]', { timeout: 15000 }).catch(() => null);
+      if (!feedFound) {
+        console.log('Google Maps: [role="feed"] not found, checking current page...');
+        const currentUrl = this.page.url();
+        console.log('Google Maps: current URL:', currentUrl);
+        await this.handleGoogleConsent();
+        await this.delay(3000);
+        await this.page.waitForSelector('[role="feed"]', { timeout: 10000 }).catch(() => {});
+      }
+      await this.delay(3000);
 
-      // Scroll for more results
-      await this.autoScroll(800, 20);
+      await this.autoScroll(800, 50);
 
-      // Collect all Google Maps links
       const mapLinks = await this.collectMapLinks();
       if (onBatch && mapLinks.length > 0) {
         await onBatch(mapLinks);
@@ -304,21 +414,22 @@ export class GoogleMapsScraper extends BaseScraper {
         throw new Error('Page not initialized');
       }
 
-      // Navigate to Google Maps
-      await this.page.goto(this.baseUrl);
+      await this.page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await this.delay(2000);
+      await this.handleGoogleConsent();
 
-      // Wait for search input field
-      await this.page.waitForSelector('#searchboxinput');
+      const searchInput = await this.findSearchInput();
+      if (!searchInput) {
+        throw new Error('Search input not found on Google Maps');
+      }
 
-      // Prepare search query
       const query = searchQuery || '';
-
-      // Enter search query
-      await this.page.type('#searchboxinput', query);
+      await searchInput.click();
+      await searchInput.type(query);
       await this.page.keyboard.press('Enter');
 
-      // Wait for results to load
-      await this.page.waitForSelector('[role="main"]', { timeout: 15000 });
+      await this.page.waitForSelector('[role="feed"]', { timeout: 15000 }).catch(() => {});
+      await this.delay(3000);
 
       // Scroll for more results
       await this.autoScroll(800, 50);

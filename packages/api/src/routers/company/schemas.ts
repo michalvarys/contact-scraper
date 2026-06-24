@@ -33,7 +33,7 @@ export const companyQueryParamsSchema = z.object({
 export const companyQueryOutputSchema = z.object({
   data: z.array(
     z.object({
-      odooPartnerId: z.number().nullable(),
+      odooMailingContactId: z.number().nullable(),
       id: z.string(),
       name: z.string(),
       address: z.string(),

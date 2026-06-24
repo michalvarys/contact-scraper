@@ -22,6 +22,7 @@ queueService.registerScraperProvider('AiGoogleMapsScraper', scraperProviders.AiG
 queueService.registerScraperProvider('FirmyCzScraper', scraperProviders.FirmyCzScraper);
 queueService.registerScraperProvider('GoogleMapsScraper', scraperProviders.GoogleMapsScraper);
 queueService.registerScraperProvider('ZlateStrankyScraper', scraperProviders.ZlateStrankyScraper);
+queueService.registerScraperProvider('MultiScraper', scraperProviders.MultiScraper);
 
 // Health check endpoint pro Docker
 app.get('/health', (_req, res) => {
@@ -54,7 +55,7 @@ interface CompanyFilter {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use('/storage', storageRouter);
 
 // Pomocná funkce pro vytvoření filtru
@@ -761,7 +762,9 @@ app.use(
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Spuštění serveru
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+    server.timeout = 5 * 60 * 1000; // 5 minutes for bulk operations
+    server.keepAliveTimeout = 5 * 60 * 1000;
     console.log(`Server běží na portu ${PORT}`);
     // Spuštění fronty úloh
     (async () => {
