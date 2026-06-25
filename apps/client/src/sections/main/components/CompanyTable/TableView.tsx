@@ -8,6 +8,7 @@ import { TableBody } from './components/TableBody';
 import { TableFooter } from './components/TableFooter';
 import { EditBusinessModal } from './components/EditBusinessModal';
 import { OdooBulkActions } from './components/OdooBulkActions';
+import { EnrichmentBulkActions } from './components/EnrichmentBulkActions';
 //@ts-ignore
 import './styles/table.css';
 
@@ -52,12 +53,35 @@ export function TableView() {
     setIsAllSelected(false);
   };
 
+  // Apply enriched contact fields to the table optimistically. Only known
+  // contact columns live on the Company row; other fields are metadata-only.
+  const handleRowEnriched = (companyId: string, data: Record<string, string>) => {
+    const patch: Partial<Company> = {};
+    for (const key of ['email', 'phone', 'website'] as const) {
+      const value = (data[key] ?? '').trim();
+      if (value && value.toUpperCase() !== 'N/A') {
+        patch[key] = value;
+      }
+    }
+    if (Object.keys(patch).length > 0) {
+      updateRowData(companyId, patch);
+    }
+  };
+
   return (
     <div className="table-container">
       <OdooBulkActions
         selectedCompanyIds={selectedCompanyIds}
         selectedCompanies={selectedCompanies}
         isAllSelected={isAllSelected}
+        onComplete={handleBulkComplete}
+      />
+
+      <EnrichmentBulkActions
+        selectedCompanyIds={selectedCompanyIds}
+        selectedCompanies={selectedCompanies}
+        isAllSelected={isAllSelected}
+        onRowEnriched={handleRowEnriched}
         onComplete={handleBulkComplete}
       />
 

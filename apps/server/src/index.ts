@@ -10,6 +10,7 @@ import { scraperProviders } from '@contact-scraper/scrapers';
 import queueService from '@contact-scraper/scrapers/src/services/ScraperQueueService';
 import odooRoutes from './odoo/routes';
 import storageRouter from './routes/storage';
+import enrichmentRoutes from './routes/enrichment';
 
 dotenv.config();
 
@@ -747,6 +748,9 @@ app.use('/api', router);
 
 // Odoo API routes
 app.use('/api/odoo', odooRoutes);
+
+// Lead enrichment routes (Claude Code subscription CLI)
+app.use('/api/enrichment', enrichmentRoutes);
 
 app.use(
     '/trpc',

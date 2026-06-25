@@ -7,6 +7,7 @@ import { getEmailFromWebsite } from './tools/email';
 export class FirmyCzScraper extends BaseScraper {
   private searchQuery: string;
   private taskId: string | null = null;
+  private maxPages: number;
 
   constructor(options: ScraperOptions = {}) {
     super(options.baseUrl || 'https://www.firmy.cz/', {
@@ -14,6 +15,10 @@ export class FirmyCzScraper extends BaseScraper {
       ...options,
     });
     this.searchQuery = options.searchQuery || '';
+    // Maximální počet stránek, které scraper projde (0 nebo neuvedeno = bez limitu)
+    const parsedMaxPages = Number(options.maxPages);
+    this.maxPages =
+      Number.isFinite(parsedMaxPages) && parsedMaxPages > 0 ? Math.floor(parsedMaxPages) : 0;
   }
 
   setTaskId(taskId: string) {
@@ -278,6 +283,11 @@ export class FirmyCzScraper extends BaseScraper {
       let currentPage = 1;
       let hasNextPage = await this.checkNextPage();
 
+      if (this.maxPages > 0 && currentPage >= this.maxPages) {
+        console.log(`Dosažen limit ${this.maxPages} stránek, ukončuji vyhledávání`);
+        hasNextPage = false;
+      }
+
       // Procházení dalších stránek
       while (hasNextPage) {
         try {
@@ -291,6 +301,12 @@ export class FirmyCzScraper extends BaseScraper {
           const pageLinks = this.extractCompanyLinks(pageHtml);
           console.log(`Nalezeno ${pageLinks.length} odkazů na firmy na stránce ${currentPage}`);
           await processBatch(pageLinks);
+
+          // Zastavení po dosažení maximálního počtu stránek
+          if (this.maxPages > 0 && currentPage >= this.maxPages) {
+            console.log(`Dosažen limit ${this.maxPages} stránek, ukončuji vyhledávání`);
+            break;
+          }
 
           // Kontrola, zda existuje další stránka
           hasNextPage = await this.checkNextPage();

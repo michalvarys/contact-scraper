@@ -25,6 +25,11 @@ const formSchema = z.object({
     }),
     searchQuery: z.string().optional(),
     headless: z.boolean().default(true),
+    maxPages: z.coerce
+        .number()
+        .int()
+        .min(0, "Hodnota nesmí být záporná.")
+        .optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -66,6 +71,7 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
         defaultValues: {
             searchQuery: "",
             headless: true,
+            maxPages: undefined,
         },
     });
 
@@ -75,6 +81,9 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
             scraperType: values.scraperType,
             scraperConfig: {
                 headless: values.headless,
+                ...(values.maxPages && values.maxPages > 0
+                    ? { maxPages: values.maxPages }
+                    : {}),
             },
             searchQuery: values.searchQuery || undefined,
         });
@@ -121,6 +130,24 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
                     Pokud necháte prázdné, bude použit průmysl a region.
                 </FormDescription>
                 <FormMessage>{form.formState.errors.searchQuery?.message}</FormMessage>
+            </FormItem>
+
+            <FormItem>
+                <FormLabel>Maximální počet stránek</FormLabel>
+                <FormControl>
+                    <Input
+                        type="number"
+                        min={0}
+                        disabled={createTaskMutation.isLoading}
+                        placeholder="Bez limitu"
+                        {...register('maxPages')}
+                    />
+                </FormControl>
+                <FormDescription>
+                    Omezí, kolik stránek výsledků scraper projde. Necháte-li prázdné (nebo 0),
+                    projdou se všechny dostupné stránky.
+                </FormDescription>
+                <FormMessage>{form.formState.errors.maxPages?.message}</FormMessage>
             </FormItem>
 
             <Controller control={form.control} name="headless" render={({ field }) => (

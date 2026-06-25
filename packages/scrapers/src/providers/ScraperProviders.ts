@@ -535,6 +535,7 @@ export class FirmyCzScraperProvider implements ScraperProvider {
     const scraper = new FirmyCzScraper({
       baseUrl: config.baseUrl || 'https://www.firmy.cz/',
       headless: config.headless !== false,
+      maxPages: config.maxPages,
     });
 
     return new FirmyCzScraperWrapper(scraper, config);
