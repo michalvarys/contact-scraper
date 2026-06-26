@@ -1,131 +1,218 @@
-# Odoo Integration - Installation Instructions
+# Contact Scraper - Installation Guide
 
-## Installation Steps
+Web scraper for business contacts (Google Maps, Firmy.cz) with full-stack UI, data enrichment via Gemini API, and optional Odoo CRM integration.
 
-### 1. Install Dependencies
+## Prerequisites
+
+- **Node.js** v18+
+- **pnpm** v9.14+ (`corepack enable && corepack prepare pnpm@9.14.2 --activate`)
+- **PostgreSQL** 16 (local install or Docker)
+- **Google Chrome / Chromium** (for Puppeteer scraping)
+
+## Quick Start
+
+### 1. Clone & install dependencies
 
 ```bash
-# From project root
+git clone <repo-url>
+cd contact-scraper
 pnpm install
 ```
 
-This will install the `odoo-xmlrpc-ts` package that was added to `apps/server/package.json`.
+### 2. Configure environment variables
 
-### 2. Run Database Migration
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your values. The key variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_PG_URL` | Yes | PostgreSQL connection string |
+| `GEMINI_API_KEY` | Yes | Google Gemini API key for contact enrichment |
+| `SERVER_PORT` | No | API server port (default: `30020`) |
+| `CLIENT_PORT` | No | Next.js client port (default: `30010`) |
+| `ODOO_URL` | No | Odoo instance URL (if using CRM sync) |
+| `ODOO_DB` | No | Odoo database name |
+| `ODOO_USERNAME` | No | Odoo login |
+| `ODOO_PASSWORD` | No | Odoo password |
+
+The `.env` file at the root is loaded by both server and client. You can also place `.env` files in `apps/server/`, `apps/client/`, and `packages/database/` for per-package overrides.
+
+### 3. Start PostgreSQL
+
+**Option A: Docker (recommended)**
+
+```bash
+docker compose up -d postgres-dev
+```
+
+This starts a PostgreSQL 16 container (`gmap-scrapper-postgres-dev`) on port `5433`. Data is persisted in `.data/db2/`.
+
+Use this connection string in `.env`:
+
+```
+DATABASE_PG_URL="postgresql://postgres:Scraper123@localhost:5433/postgres"
+```
+
+To check that it's running:
+
+```bash
+docker compose ps postgres-dev
+# or connect directly:
+psql "postgresql://postgres:Scraper123@localhost:5433/postgres"
+```
+
+To stop / restart:
+
+```bash
+docker compose stop postgres-dev
+docker compose start postgres-dev
+```
+
+To reset the database (deletes all data):
+
+```bash
+docker compose down postgres-dev -v
+rm -rf .data/db2
+docker compose up -d postgres-dev
+```
+
+**Option B: Local PostgreSQL**
+
+Install PostgreSQL 16 for your OS:
+
+```bash
+# macOS (Homebrew)
+brew install postgresql@16
+brew services start postgresql@16
+
+# Ubuntu / Debian
+sudo apt install postgresql-16
+sudo systemctl start postgresql
+
+# Windows - download installer from https://www.postgresql.org/download/windows/
+```
+
+Create a database and user (or use the default `postgres`), then set the connection string in `.env`:
+
+```
+DATABASE_PG_URL="postgresql://postgres:your-password@localhost:5432/contact_scraper"
+```
+
+### 4. Set up the database
+
+Generate the Prisma client and run migrations to create all tables:
 
 ```bash
 cd packages/database
-pnpm prisma migrate dev --name add_odoo_partner_id
 pnpm prisma generate
+pnpm prisma migrate dev
+cd ../..
 ```
 
-### 3. Configure Environment Variables
+To verify the database is set up correctly:
 
-Create/update `apps/server/.env`:
-
-```env
-# Existing variables...
-DATABASE_PG_URL="postgresql://user:password@localhost:5432/gmap_scraper?schema=public"
-PORT=3002
-
-# Add Odoo configuration
-ODOO_URL=http://localhost:8069
-ODOO_DB=odoo
-ODOO_USERNAME=admin
-ODOO_PASSWORD=admin
+```bash
+cd packages/database
+pnpm prisma studio
 ```
 
-### 4. Build and Start
+This opens a GUI at http://localhost:5555 where you can browse tables and data.
+
+### 5. Run in development mode
+
+```bash
+pnpm dev
+```
+
+This starts both apps via Turbo:
+- **API server** at `http://localhost:30020`
+- **Client** at `http://localhost:30010`
+
+## Docker (full stack)
+
+To run everything in Docker:
+
+```bash
+# Build images
+docker compose build
+
+# Start all services
+docker compose up -d
+```
+
+Services:
+- `postgres` - Production database (port `5432`)
+- `postgres-dev` - Development database (port `5433`)
+- `puppeteer` - Headless browser for scraping (port `30033`)
+- `api` - API server
+- `client` - Next.js frontend
+
+## Project Structure
+
+```
+contact-scraper/
+  apps/
+    client/          # Next.js 15 frontend (React 19, TailwindCSS, shadcn/ui)
+    server/          # Express API server (tRPC, Swagger)
+    storage-data/    # Local file storage for scraped data
+  packages/
+    database/        # Prisma schema & client
+    pg/              # PostgreSQL client wrapper
+    api/             # tRPC router definitions
+    auth/            # JWT authentication
+    scrapers/        # Google Maps & Firmy.cz scrapers (Puppeteer, Cheerio)
+    storage/         # File storage service
+    types/           # Shared TypeScript types
+    config-eslint/   # ESLint config
+    config-typescript/ # TypeScript config
+```
+
+## Useful Commands
 
 ```bash
 # Development
-cd apps/server
-pnpm dev
+pnpm dev                    # Start all apps in dev mode
+pnpm build                  # Build everything
+pnpm start                  # Start production build
+pnpm lint                   # Run linter
+pnpm format                 # Format code with Prettier
 
-# Production build
-pnpm build
-pnpm start
+# Database
+cd packages/database
+pnpm prisma generate        # Generate Prisma client
+pnpm prisma migrate dev     # Create & apply migration
+pnpm prisma migrate deploy  # Apply pending migrations (production)
+pnpm prisma studio          # Open Prisma Studio GUI
 ```
 
-### 5. Verify Installation
+## Odoo Integration
 
-Test the API endpoints:
+The server includes optional Odoo CRM integration for syncing contacts and managing mailing lists. Set the `ODOO_*` environment variables to enable it.
 
-```bash
-# Get mailing lists
-curl http://localhost:3002/api/odoo/mailing-lists
+API endpoints:
+- `GET  /api/odoo/mailing-lists` - List mailing lists
+- `POST /api/odoo/sync-contact` - Sync a contact to Odoo
+- `POST /api/odoo/add-to-mailing-list` - Add contacts to a mailing list
 
-# Expected response:
-# {
-#   "success": true,
-#   "data": [...]
-# }
-```
-
-## Docker Build
-
-If using Docker, rebuild the containers:
-
-```bash
-docker-compose build
-docker-compose up
-```
-
-## Files Modified/Created
-
-✅ Modified:
-- `packages/database/prisma/schema.prisma` - Added `odooPartnerId` field
-- `apps/server/package.json` - Added `odoo-xmlrpc-ts` dependency
-- `apps/server/src/index.ts` - Added Odoo routes
-
-✅ Created:
-- `apps/server/src/odoo/models/odoo.ts` - Type definitions for mailing lists
-- `apps/server/src/odoo/admin-client.ts` - Extended with mailing list methods
-- `apps/server/src/odoo/service.ts` - Business logic layer
-- `apps/server/src/odoo/routes.ts` - API endpoints
-- `apps/server/src/odoo/README.md` - Complete API documentation
-
-## Next: Frontend Integration
-
-After installation, implement frontend features:
-
-### Contact Detail Page
-```typescript
-// Add menu with:
-// 1. "Uložit do Odoo" button (if not synced)
-// 2. "Přidat do mailing seznamu" dropdown
-// 3. Badge showing Odoo partner ID (if synced)
-```
-
-### Contact Table Bulk Actions
-```typescript
-// Add actions:
-// 1. "Synchronizovat do Varyshopu" - Bulk sync
-// 2. "Přidat do mailing seznamu" - Select list dropdown
-// 3. "Vytvořit nový mailing seznam" - Create list with selected contacts
-```
+See [apps/server/src/odoo/README.md](apps/server/src/odoo/README.md) for full API docs.
 
 ## Troubleshooting
 
-### pnpm install fails
+**pnpm install fails**
 ```bash
-# Clear cache and retry
 pnpm store prune
 pnpm install
 ```
 
-### Prisma generate fails
+**Prisma generate fails**
 ```bash
-# Remove and regenerate
 rm -rf node_modules/.prisma
-pnpm prisma generate
+cd packages/database && pnpm prisma generate
 ```
 
-### Build errors
-```bash
-# Clean build
-rm -rf dist/
-pnpm build
-```
+**Port already in use** - Change `SERVER_PORT` / `CLIENT_PORT` in `.env`.
 
-For detailed API documentation, see [apps/server/src/odoo/README.md](apps/server/src/odoo/README.md)
+**Puppeteer can't find Chrome** - Install Chrome or set `PUPPETEER_EXECUTABLE_PATH` to your Chromium binary path.
