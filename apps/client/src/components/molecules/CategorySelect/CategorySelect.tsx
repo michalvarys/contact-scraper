@@ -27,7 +27,7 @@ export function CategorySelect<T extends unknown>({ multiple, value, onChange }:
             options={categoryOptions}
             value={selectValue}
             onChange={(val: string | string[]) => {
-                const newValue = Array.isArray(val) ? val.map(String) : [];
+                const newValue = Array.isArray(val) ? val.map(Number) : [];
                 onChange(newValue);
             }}
             placeholder="Vyberte kategorie"

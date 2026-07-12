@@ -1,5 +1,5 @@
 import { AdminClient } from './admin-client';
-import { MailingContactData, MailingListData, SearchDomain } from './models/odoo';
+import { ContactData, MailingContactData, MailingListData, SearchDomain } from './models/odoo';
 import { prisma } from '@contact-scraper/db';
 
 /**
@@ -28,13 +28,7 @@ export class OdooService {
         this.adminClient = adminClient;
     }
 
-    /**
-     * Sync a company from local database to Odoo as mailing.contact
-     * Creates a mailing contact in Odoo and updates the local company record with odooMailingContactId
-     * @param companyId Local company ID
-     * @returns Odoo mailing contact ID
-     */
-    async syncCompanyToOdoo(companyId: string): Promise<number> {
+    async syncCompanyToOdoo(companyId: string, options?: { syncToPartner?: boolean }): Promise<number> {
         try {
             const company = await prisma.company.findUnique({
                 where: { id: companyId },
@@ -46,6 +40,9 @@ export class OdooService {
             }
 
             if (company.odooMailingContactId) {
+                if (options?.syncToPartner) {
+                    await this.ensurePartnerForCompany(company, companyId);
+                }
                 return company.odooMailingContactId;
             }
 
@@ -55,7 +52,6 @@ export class OdooService {
                 );
             }
 
-            // Check if mailing.contact already exists for this email
             const existing = await this.adminClient.searchMailingContactsByEmail(company.email);
             if (existing.length > 0) {
                 const existingId = existing[0].id;
@@ -63,12 +59,14 @@ export class OdooService {
                     where: { id: companyId },
                     data: { odooMailingContactId: existingId },
                 });
+                if (options?.syncToPartner) {
+                    await this.ensurePartnerForCompany(company, companyId, existingId);
+                }
                 return existingId;
             }
 
-            const countryId = await this.getCountryId(
-                this.parseAddress(company.address).country,
-            );
+            const parsedAddress = this.parseAddress(company.address);
+            const countryId = await this.getCountryId(parsedAddress.country);
             let tagIds: number[] = [];
             if (company.categories?.length > 0) {
                 try {
@@ -89,9 +87,17 @@ export class OdooService {
 
             const mailingContactId = await this.adminClient.createMailingContact(contactData);
 
+            const updateData: any = { odooMailingContactId: mailingContactId };
+
+            if (options?.syncToPartner) {
+                const partnerId = await this.createPartnerFromCompany(company, parsedAddress, countryId, tagIds);
+                updateData.odooPartnerId = partnerId;
+                await this.adminClient.linkMailingContactToPartner(mailingContactId, partnerId);
+            }
+
             await prisma.company.update({
                 where: { id: companyId },
-                data: { odooMailingContactId: mailingContactId },
+                data: updateData,
             });
 
             return mailingContactId;
@@ -100,12 +106,76 @@ export class OdooService {
         }
     }
 
+    private async createPartnerFromCompany(
+        company: any,
+        parsedAddress: ReturnType<typeof this.parseAddress>,
+        countryId?: number,
+        tagIds?: number[],
+    ): Promise<number> {
+        const stateId = await this.getStateId(parsedAddress.state, countryId);
+
+        const partnerData: ContactData = {
+            name: company.name,
+            email: company.email || undefined,
+            phone: this.normalizePhone(company.phone),
+            street: parsedAddress.street,
+            city: parsedAddress.city,
+            zip: parsedAddress.postalCode,
+            country_id: countryId,
+            state_id: stateId,
+            company_name: company.name,
+            website: this.normalizeWebsite(company.website) || undefined,
+            is_company: true,
+            company_type: 'company',
+            category_id: tagIds?.length ? tagIds : undefined,
+        };
+
+        const existingPartners = company.email
+            ? await this.adminClient.searchPartnersByEmail(company.email)
+            : [];
+
+        if (existingPartners.length > 0) {
+            const partnerId = existingPartners[0].id;
+            await this.adminClient.updatePartner(partnerId, partnerData);
+            return partnerId;
+        }
+
+        return await this.adminClient.createPartner(partnerData);
+    }
+
+    private async ensurePartnerForCompany(company: any, companyId: string, mailingContactId?: number): Promise<void> {
+        if (company.odooPartnerId) return;
+
+        const parsedAddress = this.parseAddress(company.address);
+        const countryId = await this.getCountryId(parsedAddress.country);
+        let tagIds: number[] = [];
+        if (company.categories?.length > 0) {
+            try {
+                tagIds = await this.getOrCreateTagIds(company.categories.map((c: { name: string }) => c.name));
+            } catch (err) {
+                console.warn('Failed to create tags for partner, continuing without them:', err);
+            }
+        }
+
+        const partnerId = await this.createPartnerFromCompany(company, parsedAddress, countryId, tagIds);
+
+        const mcId = mailingContactId || company.odooMailingContactId;
+        if (mcId) {
+            await this.adminClient.linkMailingContactToPartner(mcId, partnerId);
+        }
+
+        await prisma.company.update({
+            where: { id: companyId },
+            data: { odooPartnerId: partnerId },
+        });
+    }
+
     /**
      * Update existing company in Odoo mailing.contact with latest data
      * @param companyId Local company ID
      * @returns Success status
      */
-    async updateCompanyInOdoo(companyId: string): Promise<boolean> {
+    async updateCompanyInOdoo(companyId: string, options?: { syncToPartner?: boolean }): Promise<boolean> {
         try {
             const company = await prisma.company.findUnique({
                 where: { id: companyId },
@@ -120,9 +190,8 @@ export class OdooService {
                 throw new Error(`Company ${companyId} is not synced to Odoo. Use sync instead of update.`);
             }
 
-            const countryId = await this.getCountryId(
-                this.parseAddress(company.address).country,
-            );
+            const parsedAddress = this.parseAddress(company.address);
+            const countryId = await this.getCountryId(parsedAddress.country);
             let tagIds: number[] = [];
             if (company.categories?.length > 0) {
                 try {
@@ -142,6 +211,29 @@ export class OdooService {
             };
 
             const success = await this.adminClient.updateMailingContact(company.odooMailingContactId, contactData);
+
+            if (options?.syncToPartner) {
+                if (company.odooPartnerId) {
+                    const stateId = await this.getStateId(parsedAddress.state, countryId);
+                    const partnerData: Partial<ContactData> = {
+                        name: company.name,
+                        email: company.email || undefined,
+                        phone: this.normalizePhone(company.phone),
+                        street: parsedAddress.street,
+                        city: parsedAddress.city,
+                        zip: parsedAddress.postalCode,
+                        country_id: countryId,
+                        state_id: stateId,
+                        company_name: company.name,
+                        website: this.normalizeWebsite(company.website) || undefined,
+                        category_id: tagIds.length ? tagIds : undefined,
+                    };
+                    await this.adminClient.updatePartner(company.odooPartnerId, partnerData);
+                } else {
+                    await this.ensurePartnerForCompany(company, companyId);
+                }
+            }
+
             return success;
         } catch (error) {
             throw new Error(`Failed to update company in Odoo: ${error}`);
@@ -153,20 +245,19 @@ export class OdooService {
      * @param companyIds Array of local company IDs
      * @returns Array of Odoo partner IDs
      */
-    async syncCompaniesToOdoo(companyIds: string[]): Promise<number[]> {
-        const partnerIds: number[] = [];
+    async syncCompaniesToOdoo(companyIds: string[], options?: { syncToPartner?: boolean }): Promise<number[]> {
+        const mailingContactIds: number[] = [];
 
         for (const companyId of companyIds) {
             try {
-                const partnerId = await this.syncCompanyToOdoo(companyId);
-                partnerIds.push(partnerId);
+                const mcId = await this.syncCompanyToOdoo(companyId, options);
+                mailingContactIds.push(mcId);
             } catch (error) {
                 console.error(`Failed to sync company ${companyId}:`, error);
-                // Continue with other companies
             }
         }
 
-        return partnerIds;
+        return mailingContactIds;
     }
 
     /**
@@ -175,10 +266,9 @@ export class OdooService {
      * @param mailingListId Odoo mailing list ID
      * @returns Subscription ID
      */
-    async addCompanyToMailingList(companyId: string, mailingListId: number): Promise<number> {
+    async addCompanyToMailingList(companyId: string, mailingListId: number, options?: { syncToPartner?: boolean }): Promise<number> {
         try {
-            // Sync company to Odoo as mailing.contact (or get existing ID)
-            const mailingContactId = await this.syncCompanyToOdoo(companyId);
+            const mailingContactId = await this.syncCompanyToOdoo(companyId, options);
 
             const subscriptionId = await this.adminClient.addContactToMailingList(
                 mailingContactId,
@@ -203,12 +293,13 @@ export class OdooService {
     async addCompaniesToMailingList(
         companyIds: string[],
         mailingListId: number,
+        options?: { syncToPartner?: boolean },
     ): Promise<number[]> {
         const subscriptionIds: number[] = [];
 
         for (const companyId of companyIds) {
             try {
-                const subscriptionId = await this.addCompanyToMailingList(companyId, mailingListId);
+                const subscriptionId = await this.addCompanyToMailingList(companyId, mailingListId, options);
                 subscriptionIds.push(subscriptionId);
             } catch (error) {
                 console.error(`Failed to add company ${companyId} to mailing list:`, error);
@@ -225,9 +316,8 @@ export class OdooService {
      * @param companyIds Optional array of company IDs to add
      * @returns Created mailing list ID
      */
-    async createMailingListWithCompanies(name: string, companyIds?: string[]): Promise<number> {
+    async createMailingListWithCompanies(name: string, companyIds?: string[], options?: { syncToPartner?: boolean }): Promise<number> {
         try {
-            // Create mailing list
             const listData: MailingListData = {
                 name,
                 active: true,
@@ -236,9 +326,8 @@ export class OdooService {
 
             const listId = await this.adminClient.createMailingList(listData);
 
-            // Add companies if provided
             if (companyIds && companyIds.length > 0) {
-                await this.addCompaniesToMailingList(companyIds, listId);
+                await this.addCompaniesToMailingList(companyIds, listId, options);
             }
 
             return listId;

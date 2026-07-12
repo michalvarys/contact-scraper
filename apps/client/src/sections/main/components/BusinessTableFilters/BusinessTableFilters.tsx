@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/utils';
 import CustomSelect from '../../../../components/molecules/CustomSelect';
+import { trpc } from '@/trpc/trpc';
 
 export interface BusinessTableFiltersProps {
   /**
@@ -33,6 +34,7 @@ export const BusinessTableFilters: React.FC<BusinessTableFiltersProps> = ({
 }) => {
   const { filters, setFilter, resetFilters } = useUrlFilters();
   const [searchTerm, setSearchTerm] = useState(filters.keyword || '');
+  const { data: icpProfiles = [] } = trpc.icp.list.useQuery();
 
   useDebounce(
     () => {
@@ -92,6 +94,22 @@ export const BusinessTableFilters: React.FC<BusinessTableFiltersProps> = ({
         onChange={(value) => setFilter('hasPhone', value as string)}
         value={filters.hasPhone || 'all'}
       />
+
+      {icpProfiles.length > 0 && (
+        <CustomSelect
+          className="w-44"
+          options={[
+            { id: 'all', value: '', label: 'ICP vše' },
+            ...icpProfiles.map((p) => ({
+              id: p.id,
+              value: p.id,
+              label: `ICP: ${p.name}`,
+            })),
+          ]}
+          onChange={(value) => setFilter('icpProfileId', value as string)}
+          value={filters.icpProfileId || ''}
+        />
+      )}
 
       <Button variant="outline" size="icon" onClick={handleResetFilters} title="Resetovat filtry">
         <X className="h-4 w-4" />

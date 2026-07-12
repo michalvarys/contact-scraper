@@ -28,12 +28,16 @@ export const companyQueryParamsSchema = z.object({
   sortDir: z.enum(['asc', 'desc']).optional(),
   // Duplicitní filtr - seznam vlastností pro filtrování duplicit
   duplicates: z.string().optional(), // z.enum(['email', 'phone', 'website', 'name']).optional(),
+  // ICP filtr - zobrazí pouze firmy s ICP skóre pro daný profil
+  icpProfileId: z.string().optional(),
+  icpMinScore: z.string().optional(),
 });
 
 export const companyQueryOutputSchema = z.object({
   data: z.array(
     z.object({
       odooMailingContactId: z.number().nullable(),
+      odooPartnerId: z.number().nullable(),
       id: z.string(),
       name: z.string(),
       address: z.string(),
@@ -56,6 +60,14 @@ export const companyQueryOutputSchema = z.object({
         })
         .optional()
         .nullable(),
+      icpScores: z
+        .array(
+          z.object({
+            score: z.number(),
+            reasoning: z.string().nullable(),
+          }),
+        )
+        .optional(),
     }),
   ),
   pagination: z.object({

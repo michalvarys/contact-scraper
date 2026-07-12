@@ -20,6 +20,7 @@ export const Navigation: React.FC<NavigationProps> = ({ className }) => {
     const navItems = [
         { href: '/', label: 'Firemní databáze' },
         { href: '/scraper', label: 'Fronta scraperu' },
+        { href: '/icp', label: 'ICP Profily' },
     ];
 
     return (

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "SOCS",
+    "value": "CAESNQgEEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjYwNzA4LjA3X3AwGgJjcyACGgYIgOzA0gY",
+    "domain": ".google.com",
+    "path": "/",
+    "expires": 1817807107.782879,
+    "size": 91,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "Lax",
+    "priority": "Medium",
+    "sourceScheme": "Secure",
+    "sameParty": false
+  },
+  {
+    "name": "__Secure-ENID",
+    "value": "34.SE=hK9YtuPV3Jsy9orQI1v95BKOVX9FX1xVaqkzQUyarws3Uz46WRqWbNaoO3kYoMN5WHYZbIyOCcmwyp_7PRY2l7QLJt5nfJMF9L-R9aUBv9PUB48Pzkv5sk1zKLk8DDVEx9m4889UXHBu_Qn4zuVpMtQGuQKClL5Y9MIGx3Lkp0kw-3dlcsWTNeSYT56IV-PMmHbaptXbluHcSP9WA-Vg0bC06SooSPJb_6wDj5EvO2qA1YHcv5uQBe2puYGHW7aOgXZSO1mVw-0",
+    "domain": ".google.com",
+    "path": "/",
+    "expires": 1817865803.972104,
+    "size": 286,
+    "httpOnly": true,
+    "secure": true,
+    "session": false,
+    "sameSite": "Lax",
+    "priority": "Medium",
+    "sourceScheme": "Secure",
+    "sameParty": false
+  }
+]

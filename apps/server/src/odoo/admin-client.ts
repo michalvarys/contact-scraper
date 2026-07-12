@@ -269,6 +269,85 @@ export class AdminClient extends BaseClient {
     }
 
     // ============================================================================
+    // RES.PARTNER MANAGEMENT
+    // ============================================================================
+
+    async createPartner(contactData: ContactData): Promise<number> {
+        try {
+            const data: any = { name: contactData.name };
+
+            if (contactData.email) data.email = contactData.email;
+            if (contactData.phone) data.phone = contactData.phone;
+            if (contactData.mobile) data.mobile = contactData.mobile;
+            if (contactData.street) data.street = contactData.street;
+            if (contactData.city) data.city = contactData.city;
+            if (contactData.zip) data.zip = contactData.zip;
+            if (contactData.country_id) data.country_id = contactData.country_id;
+            if (contactData.state_id) data.state_id = contactData.state_id;
+            if (contactData.company_name) data.company_name = contactData.company_name;
+            if (contactData.website) data.website = contactData.website;
+            if (contactData.comment) data.comment = contactData.comment;
+            if (contactData.is_company !== undefined) data.is_company = contactData.is_company;
+            if (contactData.company_type) data.company_type = contactData.company_type;
+            if (contactData.category_id && contactData.category_id.length > 0) {
+                data.category_id = [[6, 0, contactData.category_id]];
+            }
+
+            return await this.create('res.partner', data);
+        } catch (error) {
+            throw new Error(`Partner creation failed: ${error}`);
+        }
+    }
+
+    async updatePartner(partnerId: number, contactData: Partial<ContactData>): Promise<boolean> {
+        try {
+            const data: any = {};
+
+            if (contactData.name) data.name = contactData.name;
+            if (contactData.email) data.email = contactData.email;
+            if (contactData.phone) data.phone = contactData.phone;
+            if (contactData.mobile) data.mobile = contactData.mobile;
+            if (contactData.street) data.street = contactData.street;
+            if (contactData.city) data.city = contactData.city;
+            if (contactData.zip) data.zip = contactData.zip;
+            if (contactData.country_id) data.country_id = contactData.country_id;
+            if (contactData.state_id) data.state_id = contactData.state_id;
+            if (contactData.company_name) data.company_name = contactData.company_name;
+            if (contactData.website) data.website = contactData.website;
+            if (contactData.comment) data.comment = contactData.comment;
+            if (contactData.is_company !== undefined) data.is_company = contactData.is_company;
+            if (contactData.company_type) data.company_type = contactData.company_type;
+            if (contactData.category_id) {
+                data.category_id = [[6, 0, contactData.category_id]];
+            }
+
+            return await this.write('res.partner', [partnerId], data);
+        } catch (error) {
+            throw new Error(`Partner update failed: ${error}`);
+        }
+    }
+
+    async searchPartnersByEmail(email: string): Promise<any[]> {
+        try {
+            return await this.searchRead(
+                'res.partner',
+                [['email', '=', email]],
+                ['id', 'name', 'email', 'phone', 'mobile', 'street', 'city', 'zip', 'country_id', 'website', 'is_company', 'category_id'],
+            );
+        } catch (error) {
+            throw new Error(`Partner search failed: ${error}`);
+        }
+    }
+
+    async linkMailingContactToPartner(mailingContactId: number, partnerId: number): Promise<boolean> {
+        try {
+            return await this.write('mailing.contact', [mailingContactId], { partner_id: partnerId });
+        } catch (error) {
+            throw new Error(`Failed to link mailing contact to partner: ${error}`);
+        }
+    }
+
+    // ============================================================================
     // LINK TRACKER MANAGEMENT
     // ============================================================================
 

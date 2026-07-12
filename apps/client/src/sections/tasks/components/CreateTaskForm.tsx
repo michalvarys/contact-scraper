@@ -30,6 +30,7 @@ const formSchema = z.object({
         .int()
         .min(0, "Hodnota nesmí být záporná.")
         .optional(),
+    icpProfileId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -75,6 +76,9 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
         },
     });
 
+    // ICP profily
+    const { data: icpProfiles } = trpc.icp.list.useQuery();
+
     // Odeslání formuláře
     const onSubmit = (values: FormValues) => {
         createTaskMutation.mutate({
@@ -86,6 +90,7 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
                     : {}),
             },
             searchQuery: values.searchQuery || undefined,
+            icpProfileId: values.icpProfileId || undefined,
         });
     };
 
@@ -149,6 +154,29 @@ const CreateTaskForm = ({ onSuccess }: CreateTaskFormProps) => {
                 </FormDescription>
                 <FormMessage>{form.formState.errors.maxPages?.message}</FormMessage>
             </FormItem>
+
+            <Controller control={form.control} name="icpProfileId" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>ICP Profil (volitelný)</FormLabel>
+                    <Select
+                        disabled={createTaskMutation.isLoading}
+                        onValueChange={field.onChange}
+                        value={field.value || ''}
+                    >
+                        <SelectItem value="">
+                            Bez ICP
+                        </SelectItem>
+                        {icpProfiles?.map((icp) => (
+                            <SelectItem key={icp.id} value={icp.id}>
+                                {icp.name}
+                            </SelectItem>
+                        ))}
+                    </Select>
+                    <FormDescription>
+                        Po dokončení scrapování se automaticky spustí AI scoring firem proti tomuto ICP.
+                    </FormDescription>
+                </FormItem>)}
+            />
 
             <Controller control={form.control} name="headless" render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">

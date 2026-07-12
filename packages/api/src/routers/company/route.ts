@@ -85,6 +85,12 @@ export const companyRouter = router({
               website: true,
             },
           },
+          ...(input.icpProfileId ? {
+            icpScores: {
+              where: { icpId: input.icpProfileId },
+              select: { score: true, reasoning: true },
+            },
+          } : {}),
         },
         skip,
         take: limitNumber,

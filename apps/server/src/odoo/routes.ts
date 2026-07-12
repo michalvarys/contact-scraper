@@ -151,9 +151,10 @@ router.post("/mailing-lists", async (req: Request, res: Response) => {
 router.post("/companies/:id/sync", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { syncToPartner } = req.body || {};
     const service = getOdooService();
 
-    const mailingContactId = await service.syncCompanyToOdoo(id);
+    const mailingContactId = await service.syncCompanyToOdoo(id, { syncToPartner });
 
     res.json({
       success: true,
@@ -180,9 +181,10 @@ router.post("/companies/:id/sync", async (req: Request, res: Response) => {
 router.put("/companies/:id/update", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { syncToPartner } = req.body || {};
     const service = getOdooService();
 
-    const success = await service.updateCompanyInOdoo(id);
+    const success = await service.updateCompanyInOdoo(id, { syncToPartner });
 
     res.json({
       success: true,
@@ -208,7 +210,7 @@ router.put("/companies/:id/update", async (req: Request, res: Response) => {
  */
 router.post("/companies/sync-bulk", async (req: Request, res: Response) => {
   try {
-    const { companyIds } = req.body;
+    const { companyIds, syncToPartner } = req.body;
 
     if (!companyIds || !Array.isArray(companyIds)) {
       res.status(400).json({
@@ -219,7 +221,7 @@ router.post("/companies/sync-bulk", async (req: Request, res: Response) => {
     }
 
     const service = getOdooService();
-    const mailingContactIds = await service.syncCompaniesToOdoo(companyIds);
+    const mailingContactIds = await service.syncCompaniesToOdoo(companyIds, { syncToPartner });
 
     res.json({
       success: true,
@@ -245,7 +247,7 @@ router.post("/companies/sync-bulk", async (req: Request, res: Response) => {
  */
 router.put("/companies/update-bulk", async (req: Request, res: Response) => {
   try {
-    const { companyIds } = req.body;
+    const { companyIds, syncToPartner } = req.body;
 
     if (!companyIds || !Array.isArray(companyIds)) {
       res.status(400).json({
@@ -261,7 +263,7 @@ router.put("/companies/update-bulk", async (req: Request, res: Response) => {
 
     for (const companyId of companyIds) {
       try {
-        await service.updateCompanyInOdoo(companyId);
+        await service.updateCompanyInOdoo(companyId, { syncToPartner });
         updatedCount++;
       } catch (error: any) {
         console.error(`Failed to update company ${companyId}:`, error);
@@ -333,7 +335,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { mailingListId } = req.body;
+      const { mailingListId, syncToPartner } = req.body;
 
       if (!mailingListId) {
         res.status(400).json({
@@ -346,7 +348,8 @@ router.post(
       const service = getOdooService();
       const subscriptionId = await service.addCompanyToMailingList(
         id,
-        parseInt(mailingListId)
+        parseInt(mailingListId),
+        { syncToPartner },
       );
 
       res.json({
@@ -377,7 +380,7 @@ router.post(
   "/companies/add-to-list-bulk",
   async (req: Request, res: Response) => {
     try {
-      const { companyIds, mailingListId } = req.body;
+      const { companyIds, mailingListId, syncToPartner } = req.body;
 
       if (!companyIds || !Array.isArray(companyIds)) {
         res.status(400).json({
@@ -399,7 +402,8 @@ router.post(
       console.log(`[Odoo] Bulk add: ${companyIds.length} companies to list ${mailingListId}`);
       const subscriptionIds = await service.addCompaniesToMailingList(
         companyIds,
-        parseInt(mailingListId)
+        parseInt(mailingListId),
+        { syncToPartner },
       );
 
       console.log(`[Odoo] Bulk add complete: ${subscriptionIds.length} added`);
@@ -431,7 +435,7 @@ router.post(
   "/companies/create-list-with-companies",
   async (req: Request, res: Response) => {
     try {
-      const { name, companyIds } = req.body;
+      const { name, companyIds, syncToPartner } = req.body;
 
       if (!name) {
         res.status(400).json({
@@ -444,7 +448,8 @@ router.post(
       const service = getOdooService();
       const listId = await service.createMailingListWithCompanies(
         name,
-        companyIds
+        companyIds,
+        { syncToPartner },
       );
 
       // Get the created list details

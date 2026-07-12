@@ -29,6 +29,7 @@ export const scraperRouter = router({
         scraperType: z.string(),
         scraperConfig: z.record(z.any()),
         searchQuery: z.string().optional(),
+        icpProfileId: z.string().optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -40,6 +41,7 @@ export const scraperRouter = router({
               ? input.scraperConfig
               : JSON.stringify(input.scraperConfig),
           searchQuery: input.searchQuery,
+          icpProfileId: input.icpProfileId,
           status: ScraperTaskStatus.PENDING,
         },
       });

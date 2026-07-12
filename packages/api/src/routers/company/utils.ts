@@ -51,6 +51,17 @@ export function createFilter(
     filter.phone = { not: null };
   }
 
+  // ICP filtr
+  if (query.icpProfileId) {
+    const minScore = query.icpMinScore ? parseInt(query.icpMinScore, 10) : undefined;
+    filter.icpScores = {
+      some: {
+        icpId: query.icpProfileId,
+        ...(minScore != null && !isNaN(minScore) ? { score: { gte: minScore } } : {}),
+      },
+    };
+  }
+
   // Přidání podmínek do OR pro klíčové slovo, pokud existují
   if (conditions.length > 0) {
     filter.OR = conditions;

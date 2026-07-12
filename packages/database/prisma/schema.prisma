@@ -33,6 +33,8 @@ model Company {
   metadata      CompanyMetadata?
   metadataId    String?
   odooMailingContactId Int? // Odoo mailing.contact ID when synced
+  odooPartnerId        Int? // Odoo res.partner ID when synced
+  icpScores     IcpCompanyScore[]
 }
 
 model CompanyMetadata {
@@ -57,9 +59,39 @@ model CompanyWebsite {
 }
 
 model Category {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  companies Company[]
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  companies   Company[]
+  icpProfiles IcpProfile[]
+}
+
+// ICP (Ideal Customer Profile)
+model IcpProfile {
+  id              String         @id @default(uuid())
+  name            String
+  description     String         // User's brief ICP description
+  enrichedData    String?        // AI-enriched JSON: detailed criteria, keywords, industries
+  searchQueries   String?        // AI-generated JSON array of search queries for scrapers
+  scoreThreshold  Int            @default(60) // Minimum score (0-100) to keep a lead
+  categoryId      Int?           // Auto-created category for tagging matching leads
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  scraperTasks    ScraperTask[]
+  companyScores   IcpCompanyScore[]
+}
+
+model IcpCompanyScore {
+  id          String     @id @default(uuid())
+  score       Int        // 0-100 match score
+  reasoning   String?    // AI reasoning for the score
+  companyId   String
+  company     Company    @relation(fields: [companyId], references: [id])
+  icpId       String
+  icp         IcpProfile @relation(fields: [icpId], references: [id])
+  scoredAt    DateTime   @default(now())
+
+  @@unique([companyId, icpId])
 }
 
 // Modely pro scraper queue
@@ -76,6 +108,8 @@ model ScraperTask {
   errorMessage  String? // Chybová hláška v případě selhání
   scrapedLinks  ScrapedLink[] // Odkazy, které scraper nalezl a zpracoval
   logs          ScraperTaskLog[] // Logy k tasku
+  icpProfileId  String?
+  icpProfile    IcpProfile?       @relation(fields: [icpProfileId], references: [id])
 }
 
 enum ScraperTaskStatus {

@@ -122,7 +122,7 @@ export function useOdoo() {
   );
 
   const syncBulk = useCallback(
-    async (companyIds: string[]) => {
+    async (companyIds: string[], options?: { syncToPartner?: boolean }) => {
       const chunks = chunkArray(companyIds, BATCH_SIZE);
       const allMailingContactIds: number[] = [];
       let processed = 0;
@@ -137,7 +137,7 @@ export function useOdoo() {
           try {
             const result = await rawApiCall<{ syncedCount: number; mailingContactIds: number[] }>('/companies/sync-bulk', {
               method: 'POST',
-              body: JSON.stringify({ companyIds: chunk }),
+              body: JSON.stringify({ companyIds: chunk, syncToPartner: options?.syncToPartner }),
             });
             allMailingContactIds.push(...result.mailingContactIds);
           } catch (err) {
@@ -165,7 +165,7 @@ export function useOdoo() {
   );
 
   const updateBulk = useCallback(
-    async (companyIds: string[]) => {
+    async (companyIds: string[], options?: { syncToPartner?: boolean }) => {
       const chunks = chunkArray(companyIds, BATCH_SIZE);
       let totalUpdated = 0;
       const allErrors: string[] = [];
@@ -182,7 +182,7 @@ export function useOdoo() {
               '/companies/update-bulk',
               {
                 method: 'PUT',
-                body: JSON.stringify({ companyIds: chunk }),
+                body: JSON.stringify({ companyIds: chunk, syncToPartner: options?.syncToPartner }),
               },
             );
             totalUpdated += result.updatedCount;
@@ -209,7 +209,7 @@ export function useOdoo() {
   );
 
   const addToMailingListBulk = useCallback(
-    async (companyIds: string[], mailingListId: number) => {
+    async (companyIds: string[], mailingListId: number, options?: { syncToPartner?: boolean }) => {
       const chunks = chunkArray(companyIds, BATCH_SIZE);
       const allSubscriptionIds: number[] = [];
       let processed = 0;
@@ -226,7 +226,7 @@ export function useOdoo() {
               '/companies/add-to-list-bulk',
               {
                 method: 'POST',
-                body: JSON.stringify({ companyIds: chunk, mailingListId }),
+                body: JSON.stringify({ companyIds: chunk, mailingListId, syncToPartner: options?.syncToPartner }),
               },
             );
             allSubscriptionIds.push(...result.subscriptionIds);
@@ -255,19 +255,19 @@ export function useOdoo() {
   );
 
   const createListWithCompanies = useCallback(
-    async (name: string, companyIds: string[]) => {
+    async (name: string, companyIds: string[], options?: { syncToPartner?: boolean }) => {
       setLoading(true);
       setError(null);
 
       try {
         const listResult = await rawApiCall<MailingList>('/companies/create-list-with-companies', {
           method: 'POST',
-          body: JSON.stringify({ name, companyIds: [] }),
+          body: JSON.stringify({ name, companyIds: [], syncToPartner: options?.syncToPartner }),
         });
 
         setLoading(false);
         if (companyIds.length > 0) {
-          await addToMailingListBulk(companyIds, listResult.id);
+          await addToMailingListBulk(companyIds, listResult.id, options);
         }
 
         return listResult;

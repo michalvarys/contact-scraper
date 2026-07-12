@@ -641,6 +641,33 @@ export class ScraperQueueService {
         level: LogLevel.INFO,
       });
 
+      // ICP scoring — if the task has an associated ICP profile, score all scraped companies
+      if (task.icpProfileId) {
+        try {
+          await this.log({ message: 'Spouštím ICP scoring...', taskId, level: LogLevel.INFO });
+          const { scoreTaskCompanies } = await import('./IcpService');
+          const scores = await scoreTaskCompanies(taskId, (progress: { current: number; total: number; scored: number; failed: number }) => {
+            this.log({
+              message: `ICP scoring: ${progress.current}/${progress.total} (${progress.scored} ohodnoceno, ${progress.failed} selhalo)`,
+              taskId,
+              level: LogLevel.INFO,
+            });
+          });
+          const above = scores.filter((s: { success: boolean; score: number }) => s.success && s.score >= 60).length;
+          await this.log({
+            message: `ICP scoring dokončeno: ${scores.length} firem ohodnoceno, ${above} splňuje práh`,
+            taskId,
+            level: LogLevel.INFO,
+          });
+        } catch (err) {
+          await this.log({
+            message: `ICP scoring selhalo: ${errorToString(err)}`,
+            taskId,
+            level: LogLevel.WARNING,
+          });
+        }
+      }
+
       return (await this.getTask(taskId)) as ScraperTask;
     } catch (error) {
       // Aktualizace stavu úlohy v případě chyby

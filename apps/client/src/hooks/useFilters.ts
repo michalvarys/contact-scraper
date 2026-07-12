@@ -26,6 +26,7 @@ export type FiltersType = {
   sortDir?: SortDirType;
   limit?: string;
   duplicates?: any;
+  icpProfileId?: string;
 };
 
 export function useFilters() {
@@ -74,6 +75,7 @@ export function useFilters() {
   const sortDir = (searchParams.get('sortDir') || 'asc') as FilterSortDirType;
   const limit = searchParams.get('limit') || '10';
   const duplicates = searchParams.get('duplicates') || '';
+  const icpProfileId = searchParams.get('icpProfileId') || '';
 
   const filters = useMemo(
     () => ({
@@ -87,8 +89,9 @@ export function useFilters() {
       sortDir,
       limit,
       duplicates,
+      icpProfileId,
     }),
-    [category, hasWebsite, hasEmail, hasPhone, keyword, page, sortBy, sortDir, limit, duplicates],
+    [category, hasWebsite, hasEmail, hasPhone, keyword, page, sortBy, sortDir, limit, duplicates, icpProfileId],
   );
 
   return {

@@ -45,6 +45,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     return selectedCompanyIds;
   }, [isAllSelected, allIds, isAllIdsFetching, selectedCompanyIds]);
 
+  const [syncToPartner, setSyncToPartner] = useState(false);
   const [mailingLists, setMailingLists] = useState<any[]>([]);
   const [selectedList, setSelectedList] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -69,7 +70,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     if (ids.length === 0) return;
 
     try {
-      const result = await syncBulk(ids);
+      const result = await syncBulk(ids, { syncToPartner });
       setShowSuccess(`✓ ${result.syncedCount} kontaktů synchronizováno do Odoo`);
       setTimeout(() => setShowSuccess(null), 4000);
       onComplete?.();
@@ -83,7 +84,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     if (ids.length === 0) return;
 
     try {
-      const result = await updateBulk(ids);
+      const result = await updateBulk(ids, { syncToPartner });
       if (result.errors && result.errors.length > 0) {
         setShowSuccess(
           `⚠️ ${result.updatedCount}/${result.totalRequested} kontaktů aktualizováno (${result.errors.length} chyb)`,
@@ -103,7 +104,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     if (ids.length === 0 || !selectedList) return;
 
     try {
-      const result = await addToMailingListBulk(ids, parseInt(selectedList));
+      const result = await addToMailingListBulk(ids, parseInt(selectedList), { syncToPartner });
       const listName = mailingLists.find((l) => l.id === parseInt(selectedList))?.name;
       setShowSuccess(`✓ ${result.addedCount} kontaktů přidáno do seznamu: ${listName}`);
       setTimeout(() => setShowSuccess(null), 4000);
@@ -121,7 +122,7 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
     if (!newListName.trim() || ids.length === 0) return;
 
     try {
-      const result = await createListWithCompanies(newListName, ids);
+      const result = await createListWithCompanies(newListName, ids, { syncToPartner });
       setShowSuccess(`✓ Seznam "${result.name}" vytvořen s ${result.contact_count} kontakty`);
       setTimeout(() => setShowSuccess(null), 4000);
       setShowCreateDialog(false);
@@ -187,6 +188,17 @@ export const OdooBulkActions: React.FC<OdooBulkActionsProps> = ({
             </div>
           </div>
         )}
+
+        {/* Partner sync option */}
+        <label className="mb-3 flex items-center gap-2 text-sm text-blue-800 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={syncToPartner}
+            onChange={(e) => setSyncToPartner(e.target.checked)}
+            className="rounded border-blue-300"
+          />
+          Vytvořit i res.partner (propojit s mailing.contact)
+        </label>
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2">

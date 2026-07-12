@@ -29,6 +29,7 @@ export interface CreateScraperTaskParams {
   scraperType: string;
   scraperConfig: string | Record<string, any>;
   searchQuery?: string;
+  icpProfileId?: string;
 }
 
 /**
